@@ -2,11 +2,11 @@ package Comun;
 
 import java.io.Serializable;
 
-public class PeticionConexion implements Serializable {
-    private String usuario;
-    private long horaConexion;
+public class SolicitudInicio implements Serializable {
+    private final String usuario;
+    private final long horaConexion;
 
-    public PeticionConexion (String usuario, long horaConexion) {
+    public SolicitudInicio(String usuario, long horaConexion) {
         this.usuario = usuario;
         this.horaConexion = horaConexion;
     }

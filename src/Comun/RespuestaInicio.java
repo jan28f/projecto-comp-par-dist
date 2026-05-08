@@ -2,11 +2,11 @@ package Comun;
 
 import java.io.Serializable;
 
-public class RespuestaConexion implements Serializable {
-    private boolean estado;
-    private String mensaje;
+public class RespuestaInicio implements Serializable {
+    private final boolean estado;
+    private final String mensaje;
 
-    public RespuestaConexion(boolean estado, String mensaje) {
+    public RespuestaInicio(boolean estado, String mensaje) {
         this.estado = estado;
         this.mensaje = mensaje;
     }
