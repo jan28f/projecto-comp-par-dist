@@ -31,13 +31,16 @@ public class EscuchaCliente implements Runnable {
                     System.out.println("----------------------------------------------");
                     try {
                         String nombreDescarga = pub.getAutor() + "_" + pub.getNombreArchivo();
+                        Path rutaArchivo = Path.of(nombreDescarga);
                         Files.write(Path.of(nombreDescarga), pub.getArchivo());
+                        String rutaClickeable = rutaArchivo.toAbsolutePath().toUri().toString();
+                        System.out.println("Archivo guardado en: " + rutaClickeable);
                     }
                     catch (Exception e) {
                         System.out.println("Error: No se pudo obtener el contenido adjunto");
                     }
                     System.out.println("Descripcion: " +  pub.getDescripcion());
-                    System.out.println("Fecha: " +  pub.getFechaPublicacion());
+                    System.out.println("Fecha: " +  pub.getFechaFormateada());
                     System.out.println("----------------------------------------------");
                     System.out.print("> ");
                 }

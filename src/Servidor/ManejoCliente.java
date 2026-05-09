@@ -33,7 +33,7 @@ public class ManejoCliente implements Runnable {
 
             boolean conectadoExitosamente = GestionUsuarios.conectar(nombreUsuario, salida);
             if (conectadoExitosamente) {
-                salida.writeObject(new RespuestaInicio(true, "Bienvenido " + nombreUsuario));
+                salida.writeObject(new RespuestaInicio(true, "Bienvenido " + nombreUsuario, GestionUsuarios.obtenerUltimasPublicaciones()));
                 while (true) {
                     Object obj = entrada.readObject();
                     if (obj instanceof Mensaje) {
@@ -51,15 +51,13 @@ public class ManejoCliente implements Runnable {
                     else if (obj instanceof Publicacion) {
                         Publicacion pub = (Publicacion) obj;
                         pub.setFechaPublicacion(Instant.now());
-                        System.out.println("Actualizando perfil de " + pub.getAutor());
-                        GestionUsuarios.almacenarPublicacion(pub);
                         System.out.println("Difundiendo la nueva publicacion de " + pub.getAutor());
                         GestionUsuarios.difundirPublicacion(pub);
                     }
                 }
             }
             else {
-                salida.writeObject(new RespuestaInicio(false, "El usuario " + nombreUsuario + " ya se encuentra conectado"));
+                salida.writeObject(new RespuestaInicio(false, "El usuario " + nombreUsuario + " ya se encuentra conectado", null));
             }
 
         } catch (IOException e) {

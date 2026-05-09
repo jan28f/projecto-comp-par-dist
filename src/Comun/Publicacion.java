@@ -2,6 +2,9 @@ package Comun;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 public class Publicacion implements Serializable {
     private String autor;
@@ -35,5 +38,9 @@ public class Publicacion implements Serializable {
     }
     public Instant getFechaPublicacion() {
         return fechaPublicacion;
+    }
+    public String getFechaFormateada() {
+        DateTimeFormatter formato = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+        return LocalDateTime.ofInstant(fechaPublicacion, ZoneId.systemDefault()).format(formato);
     }
 }

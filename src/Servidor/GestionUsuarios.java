@@ -1,16 +1,21 @@
 package Servidor;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import Comun.PerfilUsuario;
 import Comun.Publicacion;
 
 import java.io.ObjectOutputStream;
+import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class GestionUsuarios {
     private static HashMap<String, PerfilUsuario> perfiles = new HashMap<>();
     private static HashMap<String, ObjectOutputStream> conectados = new HashMap<>();
+    private static ArrayDeque<Publicacion> historialPublicaciones = new ArrayDeque<>();
+    private static final int tamanoHistorialPublicaciones = 10;
     private static final ReentrantReadWriteLock candado = new ReentrantReadWriteLock();
 
     public static boolean conectar(String usuario, ObjectOutputStream salida) {
@@ -54,24 +59,32 @@ public class GestionUsuarios {
             candado.readLock().unlock();
         }
     }
-    public static void almacenarPublicacion(Publicacion pub) {
-        PerfilUsuario perfil = perfiles.get(pub.getAutor());
-        perfil.agregarPublicacion(pub);
-        perfiles.put(pub.getAutor(), perfil);
-    }
+
     public static void difundirPublicacion(Publicacion pub) {
-        candado.readLock().lock();
+        candado.writeLock().lock();
         try {
+            if (historialPublicaciones.size() > tamanoHistorialPublicaciones) {
+                historialPublicaciones.pollFirst();
+            }
+            historialPublicaciones.addLast(pub);
+
+            PerfilUsuario perfil = perfiles.get(pub.getAutor());
+            perfil.agregarPublicacion(pub);
+
             for (ObjectOutputStream salida : conectados.values()) {
                 try {
                     salida.writeObject(pub);
+                    salida.flush();
                 }
                 catch (IOException e) {
                     System.out.println("Error: No se pudo enviar la publicacion");
                 }
             }
         } finally {
-            candado.readLock().unlock();
+            candado.writeLock().unlock();
         }
+    }
+    public static ArrayList<Publicacion> obtenerUltimasPublicaciones() {
+        return new ArrayList<Publicacion>(historialPublicaciones);
     }
 }

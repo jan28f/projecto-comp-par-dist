@@ -10,6 +10,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Scanner;
 import Comun.Mensaje;
 import Comun.Publicacion;
@@ -21,7 +22,7 @@ public class Cliente {
     private static final int puerto = 12345;
 
     public static void main(String[] args) {
-        String usuario = "Miko";
+        String usuario = "AAA";
 
         try {
             System.out.println("Conectando al servidor...");
@@ -35,6 +36,30 @@ public class Cliente {
 
             if (respuesta.getEstado()) {
                 System.out.println("Exito: " + respuesta.getMensaje());
+                System.out.println("\n--- FEED ACTUAL ---");
+                ArrayList<Publicacion> historial = respuesta.getUltimasPublicaciones();
+                if (historial.isEmpty()) {
+                    System.out.println("No hay publicaciones aun. ¡Se el primero!");
+                } else {
+                    for (Publicacion pub : historial) {
+                        System.out.println("[Nueva publicacion de " + pub.getAutor() + "]:");
+                        System.out.println("----------------------------------------------");
+                        try {
+                            String nombreDescarga = pub.getAutor() + "_" + pub.getNombreArchivo();
+                            Path rutaArchivo = Path.of(nombreDescarga);
+                            Files.write(Path.of(nombreDescarga), pub.getArchivo());
+                            String rutaClickeable = rutaArchivo.toAbsolutePath().toUri().toString();
+                            System.out.println("Archivo guardado en: " + rutaClickeable);
+                        }
+                        catch (Exception e) {
+                            System.out.println("Error: No se pudo obtener el contenido adjunto");
+                        }
+                        System.out.println("Descripcion: " +  pub.getDescripcion());
+                        System.out.println("Fecha: " +  pub.getFechaFormateada());
+                        System.out.println("----------------------------------------------");
+                    }
+                }
+
                 (new Thread(new EscuchaCliente(entrada))).start();
                 Scanner teclado = new Scanner(System.in);
 
@@ -76,6 +101,7 @@ public class Cliente {
                                     byte[] bytesArchivo = Files.readAllBytes(Path.of(rutaArchivo));
                                     Publicacion nuevaPublicacion = new Publicacion(usuario, descripcion, bytesArchivo, archivo.getName());
                                     salida.writeObject(nuevaPublicacion);
+                                    salida.flush();
                                 }
                                 else {
                                     System.out.println("Error: El archivo no existe o es un directorio");
