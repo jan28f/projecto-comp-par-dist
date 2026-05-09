@@ -22,7 +22,7 @@ public class Cliente {
     private static final int puerto = 12345;
 
     public static void main(String[] args) {
-        String usuario = "AAA";
+        String usuario = "AAA"; //Despues crear funcion de registro/login 
 
         try {
             System.out.println("Conectando al servidor...");
