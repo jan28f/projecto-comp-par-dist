@@ -1,6 +1,5 @@
 package Cliente;
 
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,21 +20,17 @@ public class EscuchaCliente implements Runnable {
 
                 if (obj instanceof Mensaje) {
                     Mensaje msj = (Mensaje) obj;
-                    Cliente.buzonMensajes.add(msj);
+                    Cliente.historialChat.add("[" + msj.getRemitente() + "]: " + msj.getContenido());
                     Cliente.repintarInterfaz();
                 }
                 else if (obj instanceof Publicacion) {
                     Publicacion pubRecibida = (Publicacion) obj;
 
+                    // Lógica de descarga silenciosa
                     try {
-                        String nombreDescarga = pubRecibida.getAutor() + "_" + pubRecibida.getNombreArchivo();
-                        Path rutaArchivo = Path.of(nombreDescarga);
-                        if (!Files.exists(rutaArchivo)) {
-                            Files.write(rutaArchivo, pubRecibida.getArchivo());
-                        }
-                    } catch (IOException e) {
-                        System.out.println("Error procesando archivo adjunto");
-                    }
+                        Path ruta = Path.of(pubRecibida.getAutor() + "_" + pubRecibida.getNombreArchivo());
+                        if (!Files.exists(ruta)) Files.write(ruta, pubRecibida.getArchivo());
+                    } catch (Exception ignored) {}
 
                     boolean actualizada = false;
                     for (int i = 0; i < Cliente.publicacionesFeed.size(); i++) {
@@ -48,14 +43,13 @@ public class EscuchaCliente implements Runnable {
 
                     if (!actualizada) {
                         Cliente.publicacionesFeed.add(pubRecibida);
-                        Cliente.indicePublicacionActual = Cliente.publicacionesFeed.size() - 1;
                     }
 
                     Cliente.repintarInterfaz();
                 }
             }
-        } catch (IOException | ClassNotFoundException e) {
-            System.out.println("Conexion terminada con el servidor.");
+        } catch (Exception e) {
+            System.out.println("\n[!] Conexion perdida con el servidor.");
         }
     }
 }
