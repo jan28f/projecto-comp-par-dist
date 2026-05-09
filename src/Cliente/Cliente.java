@@ -23,26 +23,37 @@ public class Cliente {
     private static final int puerto = 12345;
 
     public static String modoActual = "feed";
+    public static String nombreUsuario = "";
     public static ArrayList<Publicacion> publicacionesFeed = new ArrayList<>();
     public static int indicePublicacionActual = 0;
-    public static ArrayList<Mensaje> buzonMensajes = new ArrayList<>();
+    public static ArrayList<String> historialChat = new ArrayList<>();
     private static String ultimoAviso = "";
 
-    public static void limpiarConsola() {
-        for (int i = 0; i < 50; i++) {
-            System.out.println();
+    public static synchronized void limpiarConsola() {
+        try {
+            if (System.getProperty("os.name").contains("Windows")) {
+                new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor();
+            } else {
+                System.out.print("\033[H\033[2J");
+                System.out.flush();
+            }
+        } catch (Exception e) {
+            for (int i = 0; i < 50; i++) {
+                System.out.println();
+            }
         }
     }
 
-    public static void repintarInterfaz() {
+    public static synchronized void repintarInterfaz() {
         limpiarConsola();
+        System.out.println("==========================================================");
+        System.out.println(" USUARIO: " + nombreUsuario + " | MODO: " + modoActual.toUpperCase());
+        System.out.println("==========================================================");
 
         if (modoActual.equals("feed")) {
-            System.out.println("--- MODO FEED ---");
             System.out.println("Comandos: pub <ruta> <desc> | like | com <texto> | next | prev | chat | !salir");
-
             if (!ultimoAviso.isEmpty()) {
-                System.out.println("AVISO: " + ultimoAviso);
+                System.out.println("\n[!] " + ultimoAviso);
                 ultimoAviso = "";
             }
 
@@ -58,152 +69,148 @@ public class Cliente {
                 publicacionesFeed.get(indicePublicacionActual).imprimirConsola();
             }
         } else if (modoActual.equals("chat")) {
-            System.out.println("--- MODO CHAT ---");
             System.out.println("Comandos: dm <usuario> <mensaje> | feed | !salir");
-
             if (!ultimoAviso.isEmpty()) {
-                System.out.println("AVISO: " + ultimoAviso);
+                System.out.println("\n[!] " + ultimoAviso);
                 ultimoAviso = "";
             }
 
-            System.out.println("\nBandeja de entrada:");
-            if (buzonMensajes.isEmpty()) {
-                System.out.println("Sin mensajes nuevos.");
+            System.out.println("\n--- CONVERSACIONES ---");
+            if (historialChat.isEmpty()) {
+                System.out.println("No hay mensajes en esta sesion.");
             } else {
-                for (Mensaje m : buzonMensajes) {
-                    System.out.println("[" + m.getRemitente() + "]: " + m.getContenido());
+                for (String linea : historialChat) {
+                    System.out.println(linea);
                 }
-                buzonMensajes.clear();
             }
+            System.out.println("-----------------------");
         }
-        System.out.print("> ");
+        System.out.print(nombreUsuario + "> ");
     }
 
     public static void main(String[] args) {
         Scanner escaneoInicial = new Scanner(System.in);
         System.out.print("Ingrese su nombre de usuario: ");
-        String usuario = escaneoInicial.nextLine();
+        nombreUsuario = escaneoInicial.nextLine();
 
         try {
-            System.out.println("Conectando al servidor...");
             Socket socket = new Socket(ipServidor, puerto);
-
             ObjectOutputStream salida = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream entrada = new ObjectInputStream(socket.getInputStream());
 
-            salida.writeObject(new SolicitudInicio(usuario, System.currentTimeMillis()));
+            salida.writeObject(new SolicitudInicio(nombreUsuario, System.currentTimeMillis()));
             RespuestaInicio respuesta = (RespuestaInicio) entrada.readObject();
 
             if (respuesta.getEstado()) {
                 publicacionesFeed = respuesta.getUltimasPublicaciones();
                 if (!publicacionesFeed.isEmpty()) {
-                    indicePublicacionActual = (int) (Math.random() * publicacionesFeed.size());
+                    indicePublicacionActual = 0;
                 }
 
                 repintarInterfaz();
-
                 (new Thread(new EscuchaCliente(entrada))).start();
                 Scanner teclado = new Scanner(System.in);
 
                 while (true) {
-                    String comando = teclado.nextLine().trim();
+                    String entradaUsuario = teclado.nextLine().trim();
 
-                    if (comando.equalsIgnoreCase("!salir")) {
+                    if (entradaUsuario.equalsIgnoreCase("!salir")) {
                         break;
                     }
 
                     if (modoActual.equals("feed")) {
-                        if (comando.equalsIgnoreCase("chat")) {
+                        if (entradaUsuario.equalsIgnoreCase("chat")) {
                             modoActual = "chat";
                             repintarInterfaz();
                         }
-                        else if (comando.equalsIgnoreCase("next")) {
+                        else if (entradaUsuario.equalsIgnoreCase("next")) {
                             indicePublicacionActual++;
                             repintarInterfaz();
                         }
-                        else if (comando.equalsIgnoreCase("prev")) {
+                        else if (entradaUsuario.equalsIgnoreCase("prev")) {
                             indicePublicacionActual--;
                             repintarInterfaz();
                         }
-                        else if (comando.equalsIgnoreCase("like")) {
+                        else if (entradaUsuario.equalsIgnoreCase("like")) {
                             if (!publicacionesFeed.isEmpty()) {
                                 long id = publicacionesFeed.get(indicePublicacionActual).getIdPublicacion();
-                                salida.writeObject(new Interaccion("LIKE", id, usuario, ""));
+                                salida.writeObject(new Interaccion("LIKE", id, nombreUsuario, ""));
                                 salida.flush();
+                            } else {
+                                ultimoAviso = "No hay publicaciones para dar like.";
+                                repintarInterfaz();
                             }
                         }
-                        else if (comando.toLowerCase().startsWith("com ")) {
-                            String[] partes = comando.split(" ", 2);
+                        else if (entradaUsuario.toLowerCase().startsWith("com ")) {
+                            String[] partes = entradaUsuario.split(" ", 2);
                             if (partes.length == 2 && !publicacionesFeed.isEmpty()) {
                                 long id = publicacionesFeed.get(indicePublicacionActual).getIdPublicacion();
-                                salida.writeObject(new Interaccion("COMENTARIO", id, usuario, partes[1]));
+                                salida.writeObject(new Interaccion("COMENTARIO", id, nombreUsuario, partes[1]));
                                 salida.flush();
+                            } else {
+                                ultimoAviso = "Formato incorrecto o feed vacio. Uso: com <texto>";
+                                repintarInterfaz();
                             }
                         }
-                        else if (comando.toLowerCase().startsWith("pub ")) {
-                            String[] partes = comando.split(" ", 3);
+                        else if (entradaUsuario.toLowerCase().startsWith("pub ")) {
+                            String[] partes = entradaUsuario.split(" ", 3);
                             if (partes.length == 3) {
                                 String rutaLimpia = partes[1].replace("\"", "");
-                                String descripcion = partes[2];
                                 try {
                                     File archivo = new File(rutaLimpia);
-                                    if (archivo.exists() && !archivo.isDirectory()) {
-                                        byte[] bytesArchivo = Files.readAllBytes(Path.of(rutaLimpia));
-                                        Publicacion nuevaPublicacion = new Publicacion(usuario, descripcion, bytesArchivo, archivo.getName());
-                                        salida.writeObject(nuevaPublicacion);
+                                    if (archivo.exists()) {
+                                        byte[] bytes = Files.readAllBytes(archivo.toPath());
+                                        salida.writeObject(new Publicacion(nombreUsuario, partes[2], bytes, archivo.getName()));
                                         salida.flush();
-                                        ultimoAviso = "Publicacion enviada al servidor.";
+                                        ultimoAviso = "Publicacion compartida.";
                                     } else {
-                                        ultimoAviso = "Error: El archivo no existe en la ruta especificada.";
+                                        ultimoAviso = "Archivo no encontrado en la ruta especificada.";
                                     }
                                 } catch (IOException e) {
-                                    ultimoAviso = "Error: No se pudo leer el archivo.";
+                                    ultimoAviso = "Error al leer archivo. Revise los permisos.";
                                 }
-                                repintarInterfaz();
                             } else {
                                 ultimoAviso = "Formato incorrecto. Uso: pub <ruta_archivo> <descripcion>";
-                                repintarInterfaz();
                             }
+                            repintarInterfaz();
                         }
-                        else if (!comando.isEmpty()) {
+                        else if (!entradaUsuario.isEmpty()) {
                             ultimoAviso = "Comando invalido en FEED.";
+                            repintarInterfaz();
+                        } else {
                             repintarInterfaz();
                         }
                     }
                     else if (modoActual.equals("chat")) {
-                        if (comando.equalsIgnoreCase("feed")) {
+                        if (entradaUsuario.equalsIgnoreCase("feed")) {
                             modoActual = "feed";
                             repintarInterfaz();
                         }
-                        else if (comando.toLowerCase().startsWith("dm ")) {
-                            String[] partes = comando.split(" ", 3);
+                        else if (entradaUsuario.toLowerCase().startsWith("dm ")) {
+                            String[] partes = entradaUsuario.split(" ", 3);
                             if (partes.length == 3) {
-                                Mensaje nuevoMensaje = new Mensaje(usuario, partes[1], partes[2]);
-                                salida.writeObject(nuevoMensaje);
+                                String dest = partes[1];
+                                String cont = partes[2];
+                                salida.writeObject(new Mensaje(nombreUsuario, dest, cont));
                                 salida.flush();
-                                ultimoAviso = "Mensaje enviado a " + partes[1];
+                                historialChat.add("[Tu -> " + dest + "]: " + cont);
                             } else {
                                 ultimoAviso = "Formato incorrecto. Uso: dm <destinatario> <mensaje>";
                             }
                             repintarInterfaz();
                         }
-                        else if (!comando.isEmpty()) {
+                        else if (!entradaUsuario.isEmpty()) {
                             ultimoAviso = "Comando invalido en CHAT.";
+                            repintarInterfaz();
+                        } else {
                             repintarInterfaz();
                         }
                     }
                 }
-            } else {
-                System.out.println("Error: " + respuesta.getMensaje());
             }
-        } catch (UnknownHostException e) {
-            System.out.println("Error: No se pudo encontrar el servidor");
-        } catch (ConnectException e) {
-            System.out.println("Error: El servidor rechazo la conexion");
-        } catch (SocketTimeoutException e) {
-            System.out.println("Error: Se agoto el tiempo de espera");
-        } catch (IOException | ClassNotFoundException e) {
-            System.out.println("Error critico de red o clase desconocida");
+            socket.close();
+        } catch (Exception e) {
+            System.out.println("Error en cliente de red.");
         }
     }
 }
