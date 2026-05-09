@@ -1,7 +1,10 @@
 package Servidor;
 
+import java.io.IOException;
 import java.util.HashMap;
 import Comun.PerfilUsuario;
+import Comun.Publicacion;
+
 import java.io.ObjectOutputStream;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -47,6 +50,26 @@ public class GestionUsuarios {
         candado.readLock().lock();
         try {
             return conectados.containsKey(usuario);
+        } finally {
+            candado.readLock().unlock();
+        }
+    }
+    public static void almacenarPublicacion(Publicacion pub) {
+        PerfilUsuario perfil = perfiles.get(pub.getAutor());
+        perfil.agregarPublicacion(pub);
+        perfiles.put(pub.getAutor(), perfil);
+    }
+    public static void difundirPublicacion(Publicacion pub) {
+        candado.readLock().lock();
+        try {
+            for (ObjectOutputStream salida : conectados.values()) {
+                try {
+                    salida.writeObject(pub);
+                }
+                catch (IOException e) {
+                    System.out.println("Error: No se pudo enviar la publicacion");
+                }
+            }
         } finally {
             candado.readLock().unlock();
         }

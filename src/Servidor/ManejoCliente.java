@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.net.Socket;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.time.Instant;
+
+import Comun.Publicacion;
 import Comun.SolicitudInicio;
 import Comun.RespuestaInicio;
 import Comun.Mensaje;
@@ -44,6 +47,14 @@ public class ManejoCliente implements Runnable {
                             Mensaje error = new Mensaje("Servidor", nombreUsuario, "El usuario " + msj.getDestinatario() + " no esta en linea.");
                             salida.writeObject(error);
                         }
+                    }
+                    else if (obj instanceof Publicacion) {
+                        Publicacion pub = (Publicacion) obj;
+                        pub.setFechaPublicacion(Instant.now());
+                        System.out.println("Actualizando perfil de " + pub.getAutor());
+                        GestionUsuarios.almacenarPublicacion(pub);
+                        System.out.println("Difundiendo la nueva publicacion de " + pub.getAutor());
+                        GestionUsuarios.difundirPublicacion(pub);
                     }
                 }
             }
