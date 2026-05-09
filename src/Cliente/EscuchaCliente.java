@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
 import Comun.Mensaje;
 import Comun.Publicacion;
 
@@ -22,33 +21,41 @@ public class EscuchaCliente implements Runnable {
 
                 if (obj instanceof Mensaje) {
                     Mensaje msj = (Mensaje) obj;
-                    System.out.println("\n[DM de " + msj.getRemitente() + "]: " + msj.getContenido());
-                    System.out.print("> ");
+                    Cliente.buzonMensajes.add(msj);
+                    Cliente.repintarInterfaz();
                 }
                 else if (obj instanceof Publicacion) {
-                    Publicacion pub = (Publicacion) obj;
-                    System.out.println("[Nueva publicacion de " + pub.getAutor() + "]:");
-                    System.out.println("----------------------------------------------");
+                    Publicacion pubRecibida = (Publicacion) obj;
+
                     try {
-                        String nombreDescarga = pub.getAutor() + "_" + pub.getNombreArchivo();
+                        String nombreDescarga = pubRecibida.getAutor() + "_" + pubRecibida.getNombreArchivo();
                         Path rutaArchivo = Path.of(nombreDescarga);
-                        Files.write(Path.of(nombreDescarga), pub.getArchivo());
-                        String rutaClickeable = rutaArchivo.toAbsolutePath().toUri().toString();
-                        System.out.println("Archivo guardado en: " + rutaClickeable);
+                        if (!Files.exists(rutaArchivo)) {
+                            Files.write(rutaArchivo, pubRecibida.getArchivo());
+                        }
+                    } catch (IOException e) {
+                        System.out.println("Error procesando archivo adjunto");
                     }
-                    catch (Exception e) {
-                        System.out.println("Error: No se pudo obtener el contenido adjunto");
+
+                    boolean actualizada = false;
+                    for (int i = 0; i < Cliente.publicacionesFeed.size(); i++) {
+                        if (Cliente.publicacionesFeed.get(i).getIdPublicacion() == pubRecibida.getIdPublicacion()) {
+                            Cliente.publicacionesFeed.set(i, pubRecibida);
+                            actualizada = true;
+                            break;
+                        }
                     }
-                    System.out.println("Descripcion: " +  pub.getDescripcion());
-                    System.out.println("Fecha: " +  pub.getFechaFormateada());
-                    System.out.println("----------------------------------------------");
-                    System.out.print("> ");
+
+                    if (!actualizada) {
+                        Cliente.publicacionesFeed.add(pubRecibida);
+                        Cliente.indicePublicacionActual = Cliente.publicacionesFeed.size() - 1;
+                    }
+
+                    Cliente.repintarInterfaz();
                 }
             }
-        } catch (IOException e) {
-            System.out.println("Error: " + e);
-        } catch (ClassNotFoundException e) {
-            System.out.println("Error: Clase del objeto desconocido");
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Conexion terminada con el servidor.");
         }
     }
 }

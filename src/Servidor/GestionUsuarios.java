@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import Comun.PerfilUsuario;
 import Comun.Publicacion;
+import Comun.Interaccion;
 
 import java.io.ObjectOutputStream;
-import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class GestionUsuarios {
@@ -21,12 +21,10 @@ public class GestionUsuarios {
     public static boolean conectar(String usuario, ObjectOutputStream salida) {
         candado.writeLock().lock();
         try {
-            // El mismo usuario solo puede estar conectado una vez
             if (conectados.containsKey(usuario)) {
                 return false;
             }
             conectados.put(usuario, salida);
-            // Si el usuario se conecta por primera vez le crea el perfil
             if (!perfiles.containsKey(usuario)) {
                 perfiles.put(usuario, new PerfilUsuario(usuario));
             }
@@ -35,6 +33,7 @@ public class GestionUsuarios {
             candado.writeLock().unlock();
         }
     }
+
     public static void desconectar(String usuario) {
         candado.writeLock().lock();
         try {
@@ -43,6 +42,7 @@ public class GestionUsuarios {
             candado.writeLock().unlock();
         }
     }
+
     public static ObjectOutputStream getSalida(String usuario) {
         candado.readLock().lock();
         try {
@@ -51,6 +51,7 @@ public class GestionUsuarios {
             candado.readLock().unlock();
         }
     }
+
     public static boolean estaConectado(String usuario) {
         candado.readLock().lock();
         try {
@@ -73,10 +74,10 @@ public class GestionUsuarios {
 
             for (ObjectOutputStream salida : conectados.values()) {
                 try {
+                    salida.reset();
                     salida.writeObject(pub);
                     salida.flush();
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                     System.out.println("Error: No se pudo enviar la publicacion");
                 }
             }
@@ -84,7 +85,40 @@ public class GestionUsuarios {
             candado.writeLock().unlock();
         }
     }
+
     public static ArrayList<Publicacion> obtenerUltimasPublicaciones() {
         return new ArrayList<Publicacion>(historialPublicaciones);
+    }
+
+    public static void procesarInteraccion(Interaccion interaccionRecibida) {
+        candado.writeLock().lock();
+        try {
+            Publicacion publicacionObjetivo = null;
+            for (Publicacion iteradorPub : historialPublicaciones) {
+                if (iteradorPub.getIdPublicacion() == interaccionRecibida.getIdPublicacion()) {
+                    publicacionObjetivo = iteradorPub;
+                    break;
+                }
+            }
+            if (publicacionObjetivo != null) {
+                if (interaccionRecibida.getTipo().equals("LIKE")) {
+                    publicacionObjetivo.agregarMeGusta(interaccionRecibida.getAutor());
+                } else if (interaccionRecibida.getTipo().equals("COMENTARIO")) {
+                    String comentarioEstructurado = interaccionRecibida.getAutor() + ": " + interaccionRecibida.getContenido();
+                    publicacionObjetivo.agregarComentario(comentarioEstructurado);
+                }
+                for (ObjectOutputStream salidaConectada : conectados.values()) {
+                    try {
+                        salidaConectada.reset();
+                        salidaConectada.writeObject(publicacionObjetivo);
+                        salidaConectada.flush();
+                    } catch (IOException e) {
+                        System.out.println("Error actualizando publicacion para un cliente");
+                    }
+                }
+            }
+        } finally {
+            candado.writeLock().unlock();
+        }
     }
 }

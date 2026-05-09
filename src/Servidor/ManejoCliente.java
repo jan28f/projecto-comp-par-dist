@@ -10,6 +10,7 @@ import Comun.Publicacion;
 import Comun.SolicitudInicio;
 import Comun.RespuestaInicio;
 import Comun.Mensaje;
+import Comun.Interaccion;
 
 public class ManejoCliente implements Runnable {
     private final Socket socket;
@@ -53,6 +54,10 @@ public class ManejoCliente implements Runnable {
                         pub.setFechaPublicacion(Instant.now());
                         System.out.println("Difundiendo la nueva publicacion de " + pub.getAutor());
                         GestionUsuarios.difundirPublicacion(pub);
+                    }
+                    else if (obj instanceof Interaccion) {
+                        Interaccion interaccionEntrante = (Interaccion) obj;
+                        GestionUsuarios.procesarInteraccion(interaccionEntrante);
                     }
                 }
             }

@@ -16,18 +16,78 @@ import Comun.Mensaje;
 import Comun.Publicacion;
 import Comun.SolicitudInicio;
 import Comun.RespuestaInicio;
+import Comun.Interaccion;
 
 public class Cliente {
-    private static final String ip_servidor = "localhost";
+    private static final String ipServidor = "localhost";
     private static final int puerto = 12345;
 
+    public static String modoActual = "feed";
+    public static ArrayList<Publicacion> publicacionesFeed = new ArrayList<>();
+    public static int indicePublicacionActual = 0;
+    public static ArrayList<Mensaje> buzonMensajes = new ArrayList<>();
+    private static String ultimoAviso = "";
+
+    public static void limpiarConsola() {
+        for (int i = 0; i < 50; i++) {
+            System.out.println();
+        }
+    }
+
+    public static void repintarInterfaz() {
+        limpiarConsola();
+
+        if (modoActual.equals("feed")) {
+            System.out.println("--- MODO FEED ---");
+            System.out.println("Comandos: pub <ruta> <desc> | like | com <texto> | next | prev | chat | !salir");
+
+            if (!ultimoAviso.isEmpty()) {
+                System.out.println("AVISO: " + ultimoAviso);
+                ultimoAviso = "";
+            }
+
+            if (publicacionesFeed.isEmpty()) {
+                System.out.println("\nNo hay publicaciones en el feed. Usa 'pub' para crear una.");
+            } else {
+                if (indicePublicacionActual < 0) {
+                    indicePublicacionActual = publicacionesFeed.size() - 1;
+                }
+                if (indicePublicacionActual >= publicacionesFeed.size()) {
+                    indicePublicacionActual = 0;
+                }
+                publicacionesFeed.get(indicePublicacionActual).imprimirConsola();
+            }
+        } else if (modoActual.equals("chat")) {
+            System.out.println("--- MODO CHAT ---");
+            System.out.println("Comandos: dm <usuario> <mensaje> | feed | !salir");
+
+            if (!ultimoAviso.isEmpty()) {
+                System.out.println("AVISO: " + ultimoAviso);
+                ultimoAviso = "";
+            }
+
+            System.out.println("\nBandeja de entrada:");
+            if (buzonMensajes.isEmpty()) {
+                System.out.println("Sin mensajes nuevos.");
+            } else {
+                for (Mensaje m : buzonMensajes) {
+                    System.out.println("[" + m.getRemitente() + "]: " + m.getContenido());
+                }
+                buzonMensajes.clear();
+            }
+        }
+        System.out.print("> ");
+    }
+
     public static void main(String[] args) {
-        String usuario = "AAA"; //Despues crear funcion de registro/login 
+        Scanner escaneoInicial = new Scanner(System.in);
+        System.out.print("Ingrese su nombre de usuario: ");
+        String usuario = escaneoInicial.nextLine();
 
         try {
             System.out.println("Conectando al servidor...");
-            Socket socket = new Socket(ip_servidor, puerto);
-            // NO voltear, se bloquea
+            Socket socket = new Socket(ipServidor, puerto);
+
             ObjectOutputStream salida = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream entrada = new ObjectInputStream(socket.getInputStream());
 
@@ -35,105 +95,115 @@ public class Cliente {
             RespuestaInicio respuesta = (RespuestaInicio) entrada.readObject();
 
             if (respuesta.getEstado()) {
-                System.out.println("Exito: " + respuesta.getMensaje());
-                System.out.println("\n--- FEED ACTUAL ---");
-                ArrayList<Publicacion> historial = respuesta.getUltimasPublicaciones();
-                if (historial.isEmpty()) {
-                    System.out.println("No hay publicaciones aun. ¡Se el primero!");
-                } else {
-                    for (Publicacion pub : historial) {
-                        System.out.println("[Nueva publicacion de " + pub.getAutor() + "]:");
-                        System.out.println("----------------------------------------------");
-                        try {
-                            String nombreDescarga = pub.getAutor() + "_" + pub.getNombreArchivo();
-                            Path rutaArchivo = Path.of(nombreDescarga);
-                            Files.write(Path.of(nombreDescarga), pub.getArchivo());
-                            String rutaClickeable = rutaArchivo.toAbsolutePath().toUri().toString();
-                            System.out.println("Archivo guardado en: " + rutaClickeable);
-                        }
-                        catch (Exception e) {
-                            System.out.println("Error: No se pudo obtener el contenido adjunto");
-                        }
-                        System.out.println("Descripcion: " +  pub.getDescripcion());
-                        System.out.println("Fecha: " +  pub.getFechaFormateada());
-                        System.out.println("----------------------------------------------");
-                    }
+                publicacionesFeed = respuesta.getUltimasPublicaciones();
+                if (!publicacionesFeed.isEmpty()) {
+                    indicePublicacionActual = (int) (Math.random() * publicacionesFeed.size());
                 }
+
+                repintarInterfaz();
 
                 (new Thread(new EscuchaCliente(entrada))).start();
                 Scanner teclado = new Scanner(System.in);
 
-                System.out.println("Comandos: ");
-                System.out.println("    -Mensaje: dm <destinatario> <mensaje>");
-                System.out.println("    -Publicar: pub <ruta_archivo> <descripcion>");
-                System.out.println("    -Salir: !salir");
                 while (true) {
-                    System.out.print("> ");
-                    String comando = teclado.nextLine();
+                    String comando = teclado.nextLine().trim();
 
                     if (comando.equalsIgnoreCase("!salir")) {
                         break;
                     }
 
-                    if (comando.toLowerCase().startsWith("dm")) {
-                        String[] partes = comando.split(" ", 3);
-
-                        if (partes.length == 3) {
-                            String destinatario = partes[1];
-                            String texto =  partes[2];
-                            Mensaje nuevoMensaje = new Mensaje(usuario, destinatario, texto);
-                            salida.writeObject(nuevoMensaje);
+                    if (modoActual.equals("feed")) {
+                        if (comando.equalsIgnoreCase("chat")) {
+                            modoActual = "chat";
+                            repintarInterfaz();
                         }
-                        else {
-                            System.out.println("Formato incorrecto: dm <destinatario> <mensaje>");
+                        else if (comando.equalsIgnoreCase("next")) {
+                            indicePublicacionActual++;
+                            repintarInterfaz();
+                        }
+                        else if (comando.equalsIgnoreCase("prev")) {
+                            indicePublicacionActual--;
+                            repintarInterfaz();
+                        }
+                        else if (comando.equalsIgnoreCase("like")) {
+                            if (!publicacionesFeed.isEmpty()) {
+                                long id = publicacionesFeed.get(indicePublicacionActual).getIdPublicacion();
+                                salida.writeObject(new Interaccion("LIKE", id, usuario, ""));
+                                salida.flush();
+                            }
+                        }
+                        else if (comando.toLowerCase().startsWith("com ")) {
+                            String[] partes = comando.split(" ", 2);
+                            if (partes.length == 2 && !publicacionesFeed.isEmpty()) {
+                                long id = publicacionesFeed.get(indicePublicacionActual).getIdPublicacion();
+                                salida.writeObject(new Interaccion("COMENTARIO", id, usuario, partes[1]));
+                                salida.flush();
+                            }
+                        }
+                        else if (comando.toLowerCase().startsWith("pub ")) {
+                            String[] partes = comando.split(" ", 3);
+                            if (partes.length == 3) {
+                                String rutaLimpia = partes[1].replace("\"", "");
+                                String descripcion = partes[2];
+                                try {
+                                    File archivo = new File(rutaLimpia);
+                                    if (archivo.exists() && !archivo.isDirectory()) {
+                                        byte[] bytesArchivo = Files.readAllBytes(Path.of(rutaLimpia));
+                                        Publicacion nuevaPublicacion = new Publicacion(usuario, descripcion, bytesArchivo, archivo.getName());
+                                        salida.writeObject(nuevaPublicacion);
+                                        salida.flush();
+                                        ultimoAviso = "Publicacion enviada al servidor.";
+                                    } else {
+                                        ultimoAviso = "Error: El archivo no existe en la ruta especificada.";
+                                    }
+                                } catch (IOException e) {
+                                    ultimoAviso = "Error: No se pudo leer el archivo.";
+                                }
+                                repintarInterfaz();
+                            } else {
+                                ultimoAviso = "Formato incorrecto. Uso: pub <ruta_archivo> <descripcion>";
+                                repintarInterfaz();
+                            }
+                        }
+                        else if (!comando.isEmpty()) {
+                            ultimoAviso = "Comando invalido en FEED.";
+                            repintarInterfaz();
                         }
                     }
-
-                    if (comando.toLowerCase().startsWith("pub")) {
-                        String[] partes = comando.split(" ", 3);
-                        if (partes.length == 3) {
-                            String rutaArchivo = partes[1];
-                            String descripcion = partes[2];
-
-                            try {
-                                File archivo = new File(rutaArchivo);
-                                if (archivo.exists() && !archivo.isDirectory()) {
-                                    byte[] bytesArchivo = Files.readAllBytes(Path.of(rutaArchivo));
-                                    Publicacion nuevaPublicacion = new Publicacion(usuario, descripcion, bytesArchivo, archivo.getName());
-                                    salida.writeObject(nuevaPublicacion);
-                                    salida.flush();
-                                }
-                                else {
-                                    System.out.println("Error: El archivo no existe o es un directorio");
-                                }
-                            }
-                            catch (IOException e) {
-                                System.out.println("Error No se pudo leer el archivo");
-                            }
+                    else if (modoActual.equals("chat")) {
+                        if (comando.equalsIgnoreCase("feed")) {
+                            modoActual = "feed";
+                            repintarInterfaz();
                         }
-                        else {
-                            System.out.println("Formato incorrecto: pub <ruta_archivo> <descripcion>");
+                        else if (comando.toLowerCase().startsWith("dm ")) {
+                            String[] partes = comando.split(" ", 3);
+                            if (partes.length == 3) {
+                                Mensaje nuevoMensaje = new Mensaje(usuario, partes[1], partes[2]);
+                                salida.writeObject(nuevoMensaje);
+                                salida.flush();
+                                ultimoAviso = "Mensaje enviado a " + partes[1];
+                            } else {
+                                ultimoAviso = "Formato incorrecto. Uso: dm <destinatario> <mensaje>";
+                            }
+                            repintarInterfaz();
+                        }
+                        else if (!comando.isEmpty()) {
+                            ultimoAviso = "Comando invalido en CHAT.";
+                            repintarInterfaz();
                         }
                     }
                 }
-            }
-            else {
+            } else {
                 System.out.println("Error: " + respuesta.getMensaje());
             }
-        }
-        catch (UnknownHostException e) {
+        } catch (UnknownHostException e) {
             System.out.println("Error: No se pudo encontrar el servidor");
-        }
-        catch (ConnectException e) {
+        } catch (ConnectException e) {
             System.out.println("Error: El servidor rechazo la conexion");
-        }
-        catch (SocketTimeoutException e) {
-            System.out.println("Error: Se agoto el tiempo de espera para conectar");
-        }
-        catch (IOException e) {
-            System.out.println("Error: No se pudo iniciar el socket");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (SocketTimeoutException e) {
+            System.out.println("Error: Se agoto el tiempo de espera");
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Error critico de red o clase desconocida");
         }
     }
 }
