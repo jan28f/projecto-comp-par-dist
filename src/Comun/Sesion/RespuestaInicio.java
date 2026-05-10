@@ -1,8 +1,8 @@
-package Comun;
+package Comun.Sesion;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import Comun.Publicacion;
+import Comun.Publiaciones.Publicacion;
 
 public class RespuestaInicio implements Serializable {
     private final boolean estado;

@@ -1,4 +1,4 @@
-package Comun;
+package Comun.Sesion;
 
 import java.io.Serializable;
 

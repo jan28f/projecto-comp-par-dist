@@ -2,21 +2,20 @@ package Cliente;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.UnknownHostException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
 import java.net.Socket;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Scanner;
-import Comun.Mensaje;
-import Comun.Publicacion;
-import Comun.SolicitudInicio;
-import Comun.RespuestaInicio;
-import Comun.Interaccion;
+
+import Comun.DM.AccionGrupo;
+import Comun.DM.Mensaje;
+import Comun.DM.SolicitudGrupo;
+import Comun.Publiaciones.Interaccion;
+import Comun.Publiaciones.Publicacion;
+import Comun.Sesion.RespuestaInicio;
+import Comun.Sesion.SolicitudInicio;
 
 public class Cliente {
     private static final String ipServidor = "localhost";
@@ -51,7 +50,13 @@ public class Cliente {
         System.out.println("==========================================================");
 
         if (modoActual.equals("feed")) {
-            System.out.println("Comandos: pub <ruta> <desc> | like | com <texto> | next | prev | chat | !salir");
+            System.out.println("Comandos:\n" +
+                                "   Subir publicacion:                 pub <ruta> <texto>\n" +
+                                "   Dar me gusta a publicacion actual: like\n" +
+                                "   Comentar en publicacion actua:     com <texto>\n" +
+                                "   Ver publicacion previa/siguiente:  next/prev\n" +
+                                "   Mensajes:                          chat\n" +
+                                "   Salir:                             !salir");
             if (!ultimoAviso.isEmpty()) {
                 System.out.println("\n[!] " + ultimoAviso);
                 ultimoAviso = "";
@@ -69,7 +74,15 @@ public class Cliente {
                 publicacionesFeed.get(indicePublicacionActual).imprimirConsola();
             }
         } else if (modoActual.equals("chat")) {
-            System.out.println("Comandos: dm <usuario> <mensaje> | feed | !salir");
+            System.out.println("Comandos:\n" +
+                               "    Mensaje privado:                   dm <usuario> <mensaje>\n" +
+                               "    Mensaje grupo:                     gdm <grupo> <mensaje>\n" +
+                               "    Crear grupo:                       creargrupo <nombre_grupo> <integrante1,integrante2>\n" +
+                               "    Aceptar invitacion a grupo:        aceptar <nombre_grupo>\n" +
+                               "    Rechazar invitacion a grupo:       rechazar <nombre_grupo>\n" +
+                               "    Abandonar grupo:                   salirgrupo <nombre_grupo>\n" +
+                               "    Regresar al feed de publicaciones: feed\n" +
+                               "    Finalizar sesion:                  !salir");
             if (!ultimoAviso.isEmpty()) {
                 System.out.println("\n[!] " + ultimoAviso);
                 ultimoAviso = "";
@@ -191,12 +204,63 @@ public class Cliente {
                             if (partes.length == 3) {
                                 String dest = partes[1];
                                 String cont = partes[2];
-                                salida.writeObject(new Mensaje(nombreUsuario, dest, cont));
+                                salida.writeObject(new Mensaje(nombreUsuario, dest, false, cont));
                                 salida.flush();
                                 historialChat.add("[Tu -> " + dest + "]: " + cont);
                             } else {
                                 ultimoAviso = "Formato incorrecto. Uso: dm <destinatario> <mensaje>";
                             }
+                            repintarInterfaz();
+                        }
+                        else if (entradaUsuario.toLowerCase().startsWith("creargrupo ")) {
+                            String[] partes = entradaUsuario.split(" ", 3);
+                            if (partes.length == 3) {
+                                String nombreGrupo = partes[1];
+                                String[] arrayIntegrantes = partes[2].split(",");
+                                ArrayList<String> integrantes = new ArrayList<>();
+                                for (String i : arrayIntegrantes) {
+                                    integrantes.add(i.trim());
+                                }
+                                salida.writeObject(new SolicitudGrupo(nombreGrupo, integrantes));
+                                salida.flush();
+                                ultimoAviso = "Creando grupo...";
+                            } else {
+                                ultimoAviso = "Formato incorrecto. Uso: creargrupo <nombre> <usr1,usr2>";
+                            }
+                            repintarInterfaz();
+                        }
+                        else if (entradaUsuario.toLowerCase().startsWith("gdm")) {
+                            String[] partes = entradaUsuario.split(" ", 3);
+                            if (partes.length == 3) {
+                                String nombreGrupo = partes[1];
+                                String cont = partes[2];
+                                salida.writeObject(new Mensaje(nombreUsuario, nombreGrupo, true, cont));
+                                salida.flush();
+                                historialChat.add("[Tu -> Grupo " + nombreGrupo + "]: " + cont);
+                            } else {
+                                ultimoAviso = "Formato incorrecto. Uso: gdm <grupo> <mensaje>";
+                            }
+                            repintarInterfaz();
+                        }
+                        else if (entradaUsuario.toLowerCase().startsWith("aceptar ")) {
+                            String nombreGrupo = entradaUsuario.substring(8).trim();
+                            salida.writeObject(new AccionGrupo("aceptar", nombreGrupo));
+                            salida.flush();
+                            ultimoAviso = "Has aceptado la invitacion al grupo " + nombreGrupo;
+                            repintarInterfaz();
+                        }
+                        else if (entradaUsuario.toLowerCase().startsWith("rechazar ")) {
+                            String nombreGrupo = entradaUsuario.substring(9).trim();
+                            salida.writeObject(new AccionGrupo("rechazar", nombreGrupo));
+                            salida.flush();
+                            ultimoAviso = "Has rechazado la invitacion al grupo " + nombreGrupo;
+                            repintarInterfaz();
+                        }
+                        else if (entradaUsuario.toLowerCase().startsWith("salirgrupo ")) {
+                            String nombreGrupo = entradaUsuario.substring(11).trim();
+                            salida.writeObject(new AccionGrupo("salir", nombreGrupo));
+                            salida.flush();
+                            ultimoAviso = "Has salido del grupo " + nombreGrupo;
                             repintarInterfaz();
                         }
                         else if (!entradaUsuario.isEmpty()) {

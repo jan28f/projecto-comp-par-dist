@@ -3,8 +3,10 @@ package Cliente;
 import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import Comun.Mensaje;
-import Comun.Publicacion;
+
+import Comun.DM.InvitacionGrupo;
+import Comun.DM.Mensaje;
+import Comun.Publiaciones.Publicacion;
 
 public class EscuchaCliente implements Runnable {
     private final ObjectInputStream entrada;
@@ -20,13 +22,22 @@ public class EscuchaCliente implements Runnable {
 
                 if (obj instanceof Mensaje) {
                     Mensaje msj = (Mensaje) obj;
-                    Cliente.historialChat.add("[" + msj.getRemitente() + "]: " + msj.getContenido());
+                    if (msj.getEsGrupo()) {
+                        Cliente.historialChat.add("[Grupo " + msj.getDestinatario() + "] " + msj.getRemitente() + ": " + msj.getContenido());
+                    }
+                    else {
+                        Cliente.historialChat.add("[DM de " + msj.getRemitente() + "]: " + msj.getContenido());
+                    }
+                    Cliente.repintarInterfaz();
+                }
+                else if (obj instanceof InvitacionGrupo) {
+                    InvitacionGrupo inv = (InvitacionGrupo) obj;
+                    Cliente.historialChat.add("[SISTEMA]: " + inv.getInvitadoPor() + " te ha invitado al grupo '" + inv.getNombreGrupo() + "'.");
                     Cliente.repintarInterfaz();
                 }
                 else if (obj instanceof Publicacion) {
                     Publicacion pubRecibida = (Publicacion) obj;
 
-                    // Lógica de descarga silenciosa
                     try {
                         Path ruta = Path.of(pubRecibida.getAutor() + "_" + pubRecibida.getNombreArchivo());
                         if (!Files.exists(ruta)) Files.write(ruta, pubRecibida.getArchivo());

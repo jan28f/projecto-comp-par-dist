@@ -1,4 +1,4 @@
-package Comun;
+package Comun.Publiaciones;
 
 import java.io.Serializable;
 import java.time.Instant;

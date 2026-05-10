@@ -4,9 +4,10 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
-import Comun.PerfilUsuario;
-import Comun.Publicacion;
-import Comun.Interaccion;
+import Comun.DM.InvitacionGrupo;
+import Comun.Sesion.PerfilUsuario;
+import Comun.Publiaciones.Publicacion;
+import Comun.Publiaciones.Interaccion;
 
 import java.io.ObjectOutputStream;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -14,6 +15,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class GestionUsuarios {
     private static HashMap<String, PerfilUsuario> perfiles = new HashMap<>();
     private static HashMap<String, ObjectOutputStream> conectados = new HashMap<>();
+    private static HashMap<String, ArrayList<String>> grupos = new HashMap<>();
     private static ArrayDeque<Publicacion> historialPublicaciones = new ArrayDeque<>();
     private static final int tamanoHistorialPublicaciones = 10;
     private static final ReentrantReadWriteLock candado = new ReentrantReadWriteLock();
@@ -59,6 +61,105 @@ public class GestionUsuarios {
         } finally {
             candado.readLock().unlock();
         }
+    }
+
+    public static PerfilUsuario obtenerPerfil(String usuario) {
+        return perfiles.get(usuario);
+    }
+
+    private static String obtenerNombreUnicoGrupo(PerfilUsuario perfil, String nombreGrupoBase){
+        String nombreNuevoGrupo = nombreGrupoBase;
+        int cont = 1;
+        while (perfil.obtenerIDGrupo(nombreNuevoGrupo) != null) {
+            nombreNuevoGrupo = nombreGrupoBase + "_" + cont;
+            cont++;
+        }
+        return nombreNuevoGrupo;
+    }
+
+    public static boolean crearGrupo(String nombreGrupo, String creador, ArrayList<String> invitados){
+        candado.writeLock().lock();
+        try {
+            PerfilUsuario perfilCreador = perfiles.get(creador);
+            String nombreFinalGrupo = obtenerNombreUnicoGrupo(perfilCreador, nombreGrupo);
+            String idGrupo = java.util.UUID.randomUUID().toString();
+            ArrayList<String> integrantesActuales = new ArrayList<>();
+            integrantesActuales.add(creador);
+            grupos.put(idGrupo, integrantesActuales);
+            perfilCreador.agregarGrupo(nombreFinalGrupo, idGrupo);
+
+            for (String invitado: invitados) {
+                if (!perfiles.containsKey(invitado)) {
+                    continue;
+                }
+
+                PerfilUsuario perfilInvitado = perfiles.get(invitado);
+                perfilInvitado.agregarInvitacionGrupo(nombreGrupo, idGrupo, creador);
+                if (conectados.containsKey(invitado)) {
+                    try {
+                        ObjectOutputStream salida = conectados.get(invitado);
+                        salida.writeObject(new InvitacionGrupo(nombreGrupo, idGrupo, invitado));
+                        salida.flush();
+                    }
+                    catch (IOException ex) {
+                        System.out.println("Error: No se pudo enviar la invitacion al usuario activo: " + invitado);
+                    }
+                }
+            }
+            return true;
+        } finally {
+            candado.writeLock().unlock();
+        }
+    }
+
+    public static void responderSolicitudGrupo(String usuario, String nombreGrupo, boolean acepta) {
+        candado.writeLock().lock();
+        try {
+            PerfilUsuario perfil = perfiles.get(usuario);
+            InvitacionGrupo infoGrupo = perfil.obtenerInvitacionGrupo(nombreGrupo);
+            if (infoGrupo != null) {
+                if (acepta) {
+                    String nombreFinalGrupo = obtenerNombreUnicoGrupo(perfil, infoGrupo.getNombreGrupo());
+                    perfil.agregarGrupo(nombreFinalGrupo, infoGrupo.getIdGrupo());
+                    ArrayList<String> integrantesActuales = grupos.get(infoGrupo.getIdGrupo());
+                    integrantesActuales.add(usuario);
+                    grupos.put(infoGrupo.getIdGrupo(), integrantesActuales);
+                }
+
+                perfil.eliminarInvitacionGrupo(nombreGrupo);
+            }
+        } finally {
+            candado.writeLock().unlock();
+        }
+    }
+
+    public static boolean salirDeGrupo(String usuario, String nombreGrupo) {
+        candado.writeLock().lock();
+        try {
+            PerfilUsuario perfil = perfiles.get(usuario);
+            String idGrupo = perfil.obtenerIDGrupo(nombreGrupo);
+
+            if (idGrupo != null) {
+                perfil.eliminarGrupo(nombreGrupo);
+
+                ArrayList<String> integrantes = grupos.get(idGrupo);
+                if (integrantes != null) {
+                    integrantes.remove(usuario);
+
+                    if (integrantes.isEmpty()) {
+                        grupos.remove(idGrupo);
+                    }
+                }
+                return true;
+            }
+            return false;
+        } finally {
+            candado.writeLock().unlock();
+        }
+    }
+
+    public static ArrayList<String> obtenerIntegrantesGrupo(String idGrupo) {
+        return grupos.get(idGrupo);
     }
 
     public static void difundirPublicacion(Publicacion pub) {

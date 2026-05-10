@@ -5,12 +5,16 @@ import java.net.Socket;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.time.Instant;
+import java.util.ArrayList;
 
-import Comun.Publicacion;
-import Comun.SolicitudInicio;
-import Comun.RespuestaInicio;
-import Comun.Mensaje;
-import Comun.Interaccion;
+import Comun.DM.AccionGrupo;
+import Comun.DM.Mensaje;
+import Comun.DM.SolicitudGrupo;
+import Comun.Publiaciones.Interaccion;
+import Comun.Publiaciones.Publicacion;
+import Comun.Sesion.PerfilUsuario;
+import Comun.Sesion.RespuestaInicio;
+import Comun.Sesion.SolicitudInicio;
 
 public class ManejoCliente implements Runnable {
     private final Socket socket;
@@ -40,13 +44,68 @@ public class ManejoCliente implements Runnable {
                     if (obj instanceof Mensaje) {
                         Mensaje msj = (Mensaje) obj;
 
-                        if (GestionUsuarios.estaConectado(msj.getDestinatario())) {
-                            ObjectOutputStream salidaDestinatario = GestionUsuarios.getSalida(msj.getDestinatario());
-                            salidaDestinatario.writeObject(msj);
+                        if (msj.getEsGrupo()) {
+                            PerfilUsuario perfil = GestionUsuarios.obtenerPerfil(msj.getRemitente());
+                            if (perfil != null) {
+                                String idGrupo = perfil.obtenerIDGrupo(msj.getDestinatario());
+                                if (idGrupo != null) {
+                                    ArrayList<String> miembros = GestionUsuarios.obtenerIntegrantesGrupo(idGrupo);
+                                    if (miembros != null) {
+                                        for (String miembro : miembros) {
+                                            if (!miembro.equals(msj.getRemitente()) && GestionUsuarios.estaConectado(miembro)) {
+                                                ObjectOutputStream salidaDest = GestionUsuarios.getSalida(miembro);
+                                                salidaDest.writeObject(msj);
+                                                salidaDest.flush();
+                                            }
+                                        }
+                                    }
+                                }
+                                else {
+                                    salida.writeObject(new Mensaje("Servidor", nombreUsuario, false, "No se encontro el grupo"));
+                                }
+                            }
                         }
                         else {
-                            Mensaje error = new Mensaje("Servidor", nombreUsuario, "El usuario " + msj.getDestinatario() + " no esta en linea.");
+                            if (GestionUsuarios.estaConectado(msj.getDestinatario())) {
+                                ObjectOutputStream salidaDestinatario = GestionUsuarios.getSalida(msj.getDestinatario());
+                                salidaDestinatario.writeObject(msj);
+                            }
+                            else {
+                                Mensaje error = new Mensaje("Servidor", nombreUsuario, false, "El usuario " + msj.getDestinatario() + " no esta en linea.");
+                                salida.writeObject(error);
+                            }
+                        }
+                    }
+                    else if (obj instanceof SolicitudGrupo) {
+                        SolicitudGrupo soliGrupo = (SolicitudGrupo) obj;
+                        System.out.println("Procesando creacion de grupo: " + soliGrupo.getNombreGrupo());
+                        boolean creado = GestionUsuarios.crearGrupo(soliGrupo.getNombreGrupo(), nombreUsuario, soliGrupo.getIntegrantes());
+
+                        if (!creado) {
+                            Mensaje error = new Mensaje("Servidor", nombreUsuario, false, "Error: Ya tienes un grupo llamado " + soliGrupo.getNombreGrupo());
                             salida.writeObject(error);
+                            salida.flush();
+                        }
+                    }
+                    else if (obj instanceof AccionGrupo) {
+                        AccionGrupo accion = (AccionGrupo) obj;
+
+                        switch (accion.getAccion()) {
+                            case "aceptar" -> {
+                                GestionUsuarios.responderSolicitudGrupo(nombreUsuario, accion.getNombreGrupo(), true);
+                                System.out.println(nombreUsuario + " acepto unirse a " + accion.getNombreGrupo());
+                            }
+                            case "rechazar" -> {
+                                GestionUsuarios.responderSolicitudGrupo(nombreUsuario, accion.getNombreGrupo(), false);
+                                System.out.println(nombreUsuario + " rechazo unirse a " + accion.getNombreGrupo());
+                            }
+                            case "salir" -> {
+                                boolean salio = GestionUsuarios.salirDeGrupo(nombreUsuario, accion.getNombreGrupo());
+                                if (!salio) {
+                                    salida.writeObject(new Mensaje("Servidor", nombreUsuario, false, "No perteneces al grupo " + accion.getNombreGrupo()));
+                                    salida.flush();
+                                }
+                            }
                         }
                     }
                     else if (obj instanceof Publicacion) {
