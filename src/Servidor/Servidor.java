@@ -10,9 +10,10 @@ public class Servidor {
 
     public static void main(String[] args) throws IOException {
         System.out.println("Iniciando servidor");
+        ServerSocket servidor = null;
 
         try {
-            ServerSocket servidor = new ServerSocket(puerto);
+            servidor = new ServerSocket(puerto);
             System.out.println("Servidor iniciado, escuchando desde el puerto " + puerto);
 
             while (true) {
@@ -29,6 +30,17 @@ public class Servidor {
         }
         catch (IOException e) {
             System.out.println("Error al iniciar el servidor");
+        }
+        finally {
+            if (servidor != null && !servidor.isClosed()) {
+                try {
+                    servidor.close();
+                }
+                catch (IOException e) {
+                    System.out.println("Error al cerrar el servidor");
+                }
+            }
+            System.out.println("Servidor cerrado correctamente");
         }
     }
 }

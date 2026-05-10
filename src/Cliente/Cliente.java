@@ -18,7 +18,7 @@ import Comun.Sesion.RespuestaInicio;
 import Comun.Sesion.SolicitudInicio;
 
 public class Cliente {
-    private static final String ipServidor = "localhost";
+    private static final String ipServidor = "26.246.127.231";
     private static final int puerto = 12345;
 
     public static String modoActual = "feed";

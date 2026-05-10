@@ -1,9 +1,11 @@
 package Servidor;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.SocketException;
 import java.time.Instant;
 import java.util.ArrayList;
 
@@ -124,10 +126,18 @@ public class ManejoCliente implements Runnable {
                 salida.writeObject(new RespuestaInicio(false, "El usuario " + nombreUsuario + " ya se encuentra conectado", null));
             }
 
-        } catch (IOException e) {
+        }
+        catch (EOFException e) {
+            System.out.println("Se desconecto el usuario " + nombreUsuario);
+        }
+        catch (SocketException e) {
+            System.out.println("Error: Conexion perdida abruptamente con " + nombreUsuario);
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
-        } catch (ClassNotFoundException e) {
-            System.out.println("Error: Clase desconocida para el objeto");
+        }
+        catch (ClassNotFoundException e) {
+            System.out.println("Error: " + nombreUsuario + " recibio un objeto con clase desconocida");
         } finally {
             try {
                 if (nombreUsuario != null) {
@@ -136,7 +146,14 @@ public class ManejoCliente implements Runnable {
                 }
                 if (entrada != null) entrada.close();
                 if (salida != null) salida.close();
-                if (socket != null) socket.close();
+                if (socket != null && !socket.isClosed()) {
+                    try {
+                        socket.close();
+                    }
+                    catch (IOException e) {
+                        System.out.println("Error al cerrar conexion con usuario " + nombreUsuario);
+                    }
+                };
             }
             catch (IOException e) {
                 System.out.println("Error al cerrar el servidor");
