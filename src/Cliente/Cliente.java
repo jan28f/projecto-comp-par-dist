@@ -18,7 +18,7 @@ import Comun.Sesion.RespuestaInicio;
 import Comun.Sesion.SolicitudInicio;
 
 public class Cliente {
-    private static final String ipServidor = "26.246.127.231";
+    private static final String ipServidor = "127.0.0.1";
     private static final int puerto = 12345;
 
     public static String modoActual = "feed";
@@ -274,7 +274,7 @@ public class Cliente {
             }
             socket.close();
         } catch (Exception e) {
-            System.out.println("Error en cliente de red.");
+            System.out.println(e.getMessage());
         }
     }
 }
