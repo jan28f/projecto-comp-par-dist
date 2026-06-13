@@ -138,7 +138,6 @@ public class Servidor {
 
                 if (partes[0].equals(id)) {
                     this.id = partes[0].trim();
-                    this.ip = ip;
                     this.puerto_clientes = puerto_clientes;
                     this.puerto_nodos = puerto_nodos;
                 }
