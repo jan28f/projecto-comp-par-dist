@@ -2,6 +2,7 @@ package Servidor;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import Comun.DM.InvitacionGrupo;
 import Comun.Sesion.PerfilUsuario;
@@ -183,7 +184,14 @@ public class GestionUsuarios {
     }
 
     public static ArrayList<Publicacion> obtenerUltimasPublicaciones() {
-        return new ArrayList<Publicacion>(historialPublicaciones);
+        candado.readLock().lock();
+        try {
+            ArrayList<Publicacion> lista = new ArrayList<>(historialPublicaciones);
+            lista.sort(Comparator.comparing(Publicacion::getIdPublicacion).thenComparing(Publicacion::getIdNodoOrigen));
+            return lista;
+        } finally {
+            candado.readLock().unlock();
+        }
     }
 
     public static void procesarInteraccion(Interaccion interaccionRecibida) {

@@ -31,17 +31,16 @@ public class ManejoNodo implements Runnable {
                     System.out.println("Reloj actualizado: " + servidor.getReloj());
 
                     switch (mensaje.getTipo()) {
-                        case "LATIDO":
-                            servidor.getMembresia().registrarLatido(mensaje.getIdEmisor());
-                            break;
                         case "PUBLICACION": {
                             Publicacion pub = (Publicacion) mensaje.getContenido();
                             GestionUsuarios.difundirPublicacion(pub);
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe PUBLICACION de " + mensaje.getIdEmisor() + " autor=" + pub.getAutor());
                             break;
                         }
                         case "INTERACCION": {
                             Interaccion interaccion = (Interaccion) mensaje.getContenido();
                             GestionUsuarios.procesarInteraccion(interaccion);
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe INTERACCION de " + mensaje.getIdEmisor());
                             break;
                         }
                         case "MENSAJE": {
@@ -50,6 +49,7 @@ public class ManejoNodo implements Runnable {
                             if (clienteDestino != null) {
                                 clienteDestino.enviar(msj);
                             }
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe MENSAJE de " + mensaje.getIdEmisor() + " para=" + msj.getDestinatario());
                             break;
                         }
                         default:

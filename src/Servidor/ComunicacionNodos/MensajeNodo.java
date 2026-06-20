@@ -5,10 +5,10 @@ import java.io.Serializable;
 public class MensajeNodo implements Serializable {
     private final String idEmisor;
     private final String tipo;
-    private final int reloj;
+    private final long reloj;
     private final Object contenido;
 
-    public MensajeNodo(String id, String tipo, int reloj, Object contenido) {
+    public MensajeNodo(String id, String tipo, long reloj, Object contenido) {
         this.idEmisor = id;
         this.tipo = tipo;
         this.reloj = reloj;
@@ -21,7 +21,7 @@ public class MensajeNodo implements Serializable {
     public String getTipo() {
         return tipo;
     }
-    public int getReloj() {
+    public long getReloj() {
         return reloj;
     }
     public Object getContenido() {

@@ -16,28 +16,33 @@ public class Servidor {
     private int puerto_clientes = -1;
     private int puerto_nodos = -1;
     private MembresiaNodos membresia =  new MembresiaNodos();
-    private int reloj;
+    private long reloj;
+    private RegistrarEventos registro;
 
     public String getId() {
         return id;
     }
 
-    public synchronized int incrementarReloj() {
+    public synchronized long incrementarReloj() {
         reloj++;
         return reloj;
     }
 
-    public synchronized int actualizarReloj(int relojRecibido) {
+    public synchronized long actualizarReloj(long relojRecibido) {
         this.reloj = Math.max(this.reloj, relojRecibido) + 1;
         return relojRecibido;
     }
 
-    public synchronized int getReloj() {
+    public synchronized long getReloj() {
         return reloj;
     }
 
     public MembresiaNodos getMembresia() {
         return membresia;
+    }
+
+    public RegistrarEventos getRegistro() {
+        return registro;
     }
 
     protected void escuchaNodos() {
@@ -133,6 +138,7 @@ public class Servidor {
                 }
             }
             archivo.close();
+            this.registro = new RegistrarEventos(this.id);
         }
         catch (IOException e) {
             System.out.println("Error al leer el archivo de configuración");

@@ -16,6 +16,8 @@ public class Publicacion implements Serializable {
     private String nombreArchivo;
     private ArrayList<String> meGusta;
     private ArrayList<String> comentarios;
+    private long lamport;
+    private String idNodoOrigen;
 
     public Publicacion(String autor, String descripcion, byte[] archivo, String nombreArchivo) {
         this.idPublicacion = System.currentTimeMillis();
@@ -53,6 +55,18 @@ public class Publicacion implements Serializable {
     }
     public ArrayList<String> getComentarios() {
         return comentarios;
+    }
+    public void setLamport(long lamport) {
+        this.lamport = lamport;
+    }
+    public void setIdNodoOrigen(String idNodoOrigen) {
+        this.idNodoOrigen = idNodoOrigen;
+    }
+    public long getLamport() {
+        return lamport;
+    }
+    public String getIdNodoOrigen() {
+        return idNodoOrigen;
     }
 
     public void agregarMeGusta(String usuario) {

@@ -3,6 +3,7 @@ package Cliente;
 import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 
 import Comun.DM.InvitacionGrupo;
 import Comun.DM.Mensaje;
@@ -55,7 +56,7 @@ public class EscuchaCliente implements Runnable {
                     if (!actualizada) {
                         Cliente.publicacionesFeed.add(pubRecibida);
                     }
-
+                    Cliente.publicacionesFeed.sort(Comparator.comparing(Publicacion::getLamport).thenComparing(Publicacion::getIdNodoOrigen));
                     Cliente.repintarInterfaz();
                 }
             }

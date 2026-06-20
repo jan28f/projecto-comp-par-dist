@@ -71,12 +71,14 @@ public class ManejoCliente implements Runnable {
                             }
                         }
                         else {
+                            long lamport = servidor.incrementarReloj();
+                            servidor.getRegistro().registrar(lamport, "Emite MENSAJE " + nombreUsuario + " -> " + msj.getDestinatario());
                             ClienteConectado clienteDestino = GestionUsuarios.getCliente(msj.getDestinatario());
                             if (clienteDestino != null) {
                                 clienteDestino.enviar(msj);
                             }
                             else {
-                                MensajeNodo evento = new MensajeNodo(servidor.getId(), "MENSAJE", servidor.incrementarReloj(), msj);
+                                MensajeNodo evento = new MensajeNodo(servidor.getId(), "MENSAJE", lamport, msj);
                                 servidor.getMembresia().difundirEntreNodos(evento);
                             }
                         }
@@ -114,15 +116,21 @@ public class ManejoCliente implements Runnable {
                     else if (obj instanceof Publicacion) {
                         Publicacion pub = (Publicacion) obj;
                         pub.setFechaPublicacion(Instant.now());
+                        long lamport = servidor.incrementarReloj();
+                        pub.setLamport(lamport);
+                        pub.setIdNodoOrigen(servidor.getId());
+                        servidor.getRegistro().registrar(lamport, "Emite PUBLICACION autor=" + pub.getAutor());
                         System.out.println("Difundiendo la nueva publicacion de " + pub.getAutor());
                         GestionUsuarios.difundirPublicacion(pub);
-                        MensajeNodo evento = new MensajeNodo(servidor.getId(), "PUBLICACION", servidor.incrementarReloj(), pub);
+                        MensajeNodo evento = new MensajeNodo(servidor.getId(), "PUBLICACION", lamport, pub);
                         servidor.getMembresia().difundirEntreNodos(evento);
                     }
                     else if (obj instanceof Interaccion) {
                         Interaccion interaccionEntrante = (Interaccion) obj;
                         GestionUsuarios.procesarInteraccion(interaccionEntrante);
-                        MensajeNodo evento = new MensajeNodo(servidor.getId(), "INTERACCION", servidor.incrementarReloj(), interaccionEntrante);
+                        long lamport = servidor.incrementarReloj();
+                        servidor.getRegistro().registrar(lamport, "Emite INTERACCION " + interaccionEntrante.getTipo() + " autor=" + interaccionEntrante.getAutor());
+                        MensajeNodo evento = new MensajeNodo(servidor.getId(), "INTERACCION", lamport, interaccionEntrante);
                         servidor.getMembresia().difundirEntreNodos(evento);
                     }
                 }
