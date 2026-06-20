@@ -8,7 +8,6 @@ import java.io.ObjectOutputStream;
 import java.net.SocketException;
 import java.time.Instant;
 import java.util.ArrayList;
-
 import Comun.DM.AccionGrupo;
 import Comun.DM.Mensaje;
 import Comun.DM.SolicitudGrupo;
@@ -17,6 +16,7 @@ import Comun.Publiaciones.Publicacion;
 import Comun.Sesion.PerfilUsuario;
 import Comun.Sesion.RespuestaInicio;
 import Comun.Sesion.SolicitudInicio;
+import Servidor.ComunicacionClientes.ClienteConectado;
 
 public class ManejoCliente implements Runnable {
     private final Socket socket;
@@ -40,7 +40,8 @@ public class ManejoCliente implements Runnable {
 
             boolean conectadoExitosamente = GestionUsuarios.conectar(nombreUsuario, salida);
             if (conectadoExitosamente) {
-                salida.writeObject(new RespuestaInicio(true, "Bienvenido " + nombreUsuario, GestionUsuarios.obtenerUltimasPublicaciones()));
+                ClienteConectado miCliente = GestionUsuarios.getCliente(nombreUsuario);
+                miCliente.enviar(new RespuestaInicio(true, "Bienvenido " + nombreUsuario, GestionUsuarios.obtenerUltimasPublicaciones()));
                 while (true) {
                     Object obj = entrada.readObject();
                     if (obj instanceof Mensaje) {
@@ -55,26 +56,25 @@ public class ManejoCliente implements Runnable {
                                     if (miembros != null) {
                                         for (String miembro : miembros) {
                                             if (!miembro.equals(msj.getRemitente()) && GestionUsuarios.estaConectado(miembro)) {
-                                                ObjectOutputStream salidaDest = GestionUsuarios.getSalida(miembro);
-                                                salidaDest.writeObject(msj);
-                                                salidaDest.flush();
+                                                ClienteConectado clienteDestino = GestionUsuarios.getCliente(miembro);
+                                                clienteDestino.enviar(msj);
                                             }
                                         }
                                     }
                                 }
                                 else {
-                                    salida.writeObject(new Mensaje("Servidor", nombreUsuario, false, "No se encontro el grupo"));
+                                    miCliente.enviar(new Mensaje("Servidor", nombreUsuario, false, "No se encontro el grupo"));
                                 }
                             }
                         }
                         else {
                             if (GestionUsuarios.estaConectado(msj.getDestinatario())) {
-                                ObjectOutputStream salidaDestinatario = GestionUsuarios.getSalida(msj.getDestinatario());
-                                salidaDestinatario.writeObject(msj);
+                                ClienteConectado clienteDestino = GestionUsuarios.getCliente(msj.getDestinatario());
+                                clienteDestino.enviar(msj);
                             }
                             else {
                                 Mensaje error = new Mensaje("Servidor", nombreUsuario, false, "El usuario " + msj.getDestinatario() + " no esta en linea.");
-                                salida.writeObject(error);
+                                miCliente.enviar(error);
                             }
                         }
                     }
@@ -85,8 +85,7 @@ public class ManejoCliente implements Runnable {
 
                         if (!creado) {
                             Mensaje error = new Mensaje("Servidor", nombreUsuario, false, "Error: Ya tienes un grupo llamado " + soliGrupo.getNombreGrupo());
-                            salida.writeObject(error);
-                            salida.flush();
+                            miCliente.enviar(error);
                         }
                     }
                     else if (obj instanceof AccionGrupo) {
@@ -104,8 +103,7 @@ public class ManejoCliente implements Runnable {
                             case "salir" -> {
                                 boolean salio = GestionUsuarios.salirDeGrupo(nombreUsuario, accion.getNombreGrupo());
                                 if (!salio) {
-                                    salida.writeObject(new Mensaje("Servidor", nombreUsuario, false, "No perteneces al grupo " + accion.getNombreGrupo()));
-                                    salida.flush();
+                                    miCliente.enviar(new Mensaje("Servidor", nombreUsuario, false, "No perteneces al grupo " + accion.getNombreGrupo()));
                                 }
                             }
                         }
@@ -124,6 +122,7 @@ public class ManejoCliente implements Runnable {
             }
             else {
                 salida.writeObject(new RespuestaInicio(false, "El usuario " + nombreUsuario + " ya se encuentra conectado", null));
+                salida.flush();
             }
 
         }
@@ -134,7 +133,7 @@ public class ManejoCliente implements Runnable {
             System.out.println("Error: Conexion perdida abruptamente con " + nombreUsuario);
         }
         catch (IOException e) {
-            throw new RuntimeException(e);
+            System.out.println("Error: IO perdida abruptamente con " + nombreUsuario);
         }
         catch (ClassNotFoundException e) {
             System.out.println("Error: " + nombreUsuario + " recibio un objeto con clase desconocida");
@@ -145,7 +144,6 @@ public class ManejoCliente implements Runnable {
                     System.out.println("Desconectado: " + nombreUsuario);
                 }
                 if (entrada != null) entrada.close();
-                if (salida != null) salida.close();
                 if (socket != null && !socket.isClosed()) {
                     try {
                         socket.close();
@@ -153,7 +151,7 @@ public class ManejoCliente implements Runnable {
                     catch (IOException e) {
                         System.out.println("Error al cerrar conexion con usuario " + nombreUsuario);
                     }
-                };
+                }
             }
             catch (IOException e) {
                 System.out.println("Error al cerrar el servidor");

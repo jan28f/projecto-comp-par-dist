@@ -4,21 +4,25 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import Cliente.Cliente;
 import Comun.DM.InvitacionGrupo;
 import Comun.Sesion.PerfilUsuario;
 import Comun.Publiaciones.Publicacion;
 import Comun.Publiaciones.Interaccion;
+import Servidor.ComunicacionClientes.ClienteConectado;
 
 import java.io.ObjectOutputStream;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class GestionUsuarios {
-    private static HashMap<String, PerfilUsuario> perfiles = new HashMap<>();
-    private static HashMap<String, ObjectOutputStream> conectados = new HashMap<>();
-    private static HashMap<String, ArrayList<String>> grupos = new HashMap<>();
-    private static ArrayDeque<Publicacion> historialPublicaciones = new ArrayDeque<>();
+    private static final HashMap<String, PerfilUsuario> perfiles = new HashMap<>();
+    private static final HashMap<String, ClienteConectado> conectados = new HashMap<>();
+    private static final HashMap<String, ArrayList<String>> grupos = new HashMap<>();
+    private static final ArrayDeque<Publicacion> historialPublicaciones = new ArrayDeque<>();
     private static final int tamanoHistorialPublicaciones = 10;
     private static final ReentrantReadWriteLock candado = new ReentrantReadWriteLock();
+    private static final int tamano_cola = 25;
 
     public static boolean conectar(String usuario, ObjectOutputStream salida) {
         candado.writeLock().lock();
@@ -26,7 +30,9 @@ public class GestionUsuarios {
             if (conectados.containsKey(usuario)) {
                 return false;
             }
-            conectados.put(usuario, salida);
+
+            ClienteConectado nuevoCliente = new ClienteConectado(usuario, salida, tamano_cola);
+            conectados.put(usuario, nuevoCliente);
             if (!perfiles.containsKey(usuario)) {
                 perfiles.put(usuario, new PerfilUsuario(usuario));
             }
@@ -39,13 +45,16 @@ public class GestionUsuarios {
     public static void desconectar(String usuario) {
         candado.writeLock().lock();
         try {
-            conectados.remove(usuario);
+            ClienteConectado cliente = conectados.remove(usuario);
+            if (cliente != null) {
+                cliente.cerrar();
+            }
         } finally {
             candado.writeLock().unlock();
         }
     }
 
-    public static ObjectOutputStream getSalida(String usuario) {
+    public static ClienteConectado getCliente(String usuario) {
         candado.readLock().lock();
         try {
             return conectados.get(usuario);
@@ -96,14 +105,8 @@ public class GestionUsuarios {
                 PerfilUsuario perfilInvitado = perfiles.get(invitado);
                 perfilInvitado.agregarInvitacionGrupo(nombreGrupo, idGrupo, creador);
                 if (conectados.containsKey(invitado)) {
-                    try {
-                        ObjectOutputStream salida = conectados.get(invitado);
-                        salida.writeObject(new InvitacionGrupo(nombreGrupo, idGrupo, invitado));
-                        salida.flush();
-                    }
-                    catch (IOException ex) {
-                        System.out.println("Error: No se pudo enviar la invitacion al usuario activo: " + invitado);
-                    }
+                    ClienteConectado clienteDestino = conectados.get(invitado);
+                    clienteDestino.enviar(new InvitacionGrupo(nombreGrupo, idGrupo, invitado));
                 }
             }
             return true;
@@ -173,14 +176,8 @@ public class GestionUsuarios {
             PerfilUsuario perfil = perfiles.get(pub.getAutor());
             perfil.agregarPublicacion(pub);
 
-            for (ObjectOutputStream salida : conectados.values()) {
-                try {
-                    salida.reset();
-                    salida.writeObject(pub);
-                    salida.flush();
-                } catch (IOException e) {
-                    System.out.println("Error: No se pudo enviar la publicacion");
-                }
+            for (ClienteConectado cliente : conectados.values()) {
+                cliente.enviar(pub);
             }
         } finally {
             candado.writeLock().unlock();
@@ -208,14 +205,8 @@ public class GestionUsuarios {
                     String comentarioEstructurado = interaccionRecibida.getAutor() + ": " + interaccionRecibida.getContenido();
                     publicacionObjetivo.agregarComentario(comentarioEstructurado);
                 }
-                for (ObjectOutputStream salidaConectada : conectados.values()) {
-                    try {
-                        salidaConectada.reset();
-                        salidaConectada.writeObject(publicacionObjetivo);
-                        salidaConectada.flush();
-                    } catch (IOException e) {
-                        System.out.println("Error actualizando publicacion para un cliente");
-                    }
+                for (ClienteConectado cliente : conectados.values()) {
+                    cliente.enviar(publicacionObjetivo);
                 }
             }
         } finally {
