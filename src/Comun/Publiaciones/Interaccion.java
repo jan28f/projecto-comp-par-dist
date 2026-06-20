@@ -3,6 +3,7 @@ package Comun.Publiaciones;
 import java.io.Serializable;
 
 public class Interaccion implements Serializable {
+    private static final long serialVersionUID = 1L;
     private String tipo;
     private long idPublicacion;
     private String autor;

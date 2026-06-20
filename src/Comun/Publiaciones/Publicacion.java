@@ -8,6 +8,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 
 public class Publicacion implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private long idPublicacion;
     private String autor;
     private String descripcion;

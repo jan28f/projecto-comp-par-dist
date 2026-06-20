@@ -98,6 +98,7 @@ public class GestionUsuarios {
                 if (conectados.containsKey(invitado)) {
                     try {
                         ObjectOutputStream salida = conectados.get(invitado);
+                        salida.reset();
                         salida.writeObject(new InvitacionGrupo(nombreGrupo, idGrupo, invitado));
                         salida.flush();
                     }

@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class PerfilUsuario implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String nombre;
     private ArrayList<String> seguidores;
     private ArrayList<String> seguidos;

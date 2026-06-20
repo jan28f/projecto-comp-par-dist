@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 public class SolicitudGrupo implements Serializable {
+    private static final long serialVersionUID = 1L;
     private String nombreGrupo;
     private ArrayList<String> integrantes;
 

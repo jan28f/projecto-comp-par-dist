@@ -40,6 +40,7 @@ public class ManejoCliente implements Runnable {
 
             boolean conectadoExitosamente = GestionUsuarios.conectar(nombreUsuario, salida);
             if (conectadoExitosamente) {
+                salida.reset();
                 salida.writeObject(new RespuestaInicio(true, "Bienvenido " + nombreUsuario, GestionUsuarios.obtenerUltimasPublicaciones()));
                 while (true) {
                     Object obj = entrada.readObject();
@@ -56,6 +57,7 @@ public class ManejoCliente implements Runnable {
                                         for (String miembro : miembros) {
                                             if (!miembro.equals(msj.getRemitente()) && GestionUsuarios.estaConectado(miembro)) {
                                                 ObjectOutputStream salidaDest = GestionUsuarios.getSalida(miembro);
+                                                salidaDest.reset();
                                                 salidaDest.writeObject(msj);
                                                 salidaDest.flush();
                                             }
@@ -63,6 +65,7 @@ public class ManejoCliente implements Runnable {
                                     }
                                 }
                                 else {
+                                    salida.reset();
                                     salida.writeObject(new Mensaje("Servidor", nombreUsuario, false, "No se encontro el grupo"));
                                 }
                             }
@@ -85,6 +88,7 @@ public class ManejoCliente implements Runnable {
 
                         if (!creado) {
                             Mensaje error = new Mensaje("Servidor", nombreUsuario, false, "Error: Ya tienes un grupo llamado " + soliGrupo.getNombreGrupo());
+                            salida.reset();
                             salida.writeObject(error);
                             salida.flush();
                         }
@@ -104,6 +108,7 @@ public class ManejoCliente implements Runnable {
                             case "salir" -> {
                                 boolean salio = GestionUsuarios.salirDeGrupo(nombreUsuario, accion.getNombreGrupo());
                                 if (!salio) {
+                                    salida.reset();
                                     salida.writeObject(new Mensaje("Servidor", nombreUsuario, false, "No perteneces al grupo " + accion.getNombreGrupo()));
                                     salida.flush();
                                 }
