@@ -1,17 +1,13 @@
 package Servidor;
 
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
-
-import Cliente.Cliente;
 import Comun.DM.InvitacionGrupo;
 import Comun.Sesion.PerfilUsuario;
 import Comun.Publiaciones.Publicacion;
 import Comun.Publiaciones.Interaccion;
 import Servidor.ComunicacionClientes.ClienteConectado;
-
 import java.io.ObjectOutputStream;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -174,7 +170,9 @@ public class GestionUsuarios {
             historialPublicaciones.addLast(pub);
 
             PerfilUsuario perfil = perfiles.get(pub.getAutor());
-            perfil.agregarPublicacion(pub);
+            if (perfil != null) {
+                perfil.agregarPublicacion(pub);
+            }
 
             for (ClienteConectado cliente : conectados.values()) {
                 cliente.enviar(pub);

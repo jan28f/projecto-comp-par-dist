@@ -85,7 +85,7 @@ public class Servidor {
             while (true) {
                 Socket cliente = servidorClientes.accept();
 
-                (new Thread(new ManejoCliente(cliente))).start();
+                (new Thread(new ManejoCliente(cliente, this))).start();
             }
         }
         catch (BindException e) {

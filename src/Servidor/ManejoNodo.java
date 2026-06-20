@@ -1,5 +1,9 @@
 package Servidor;
 
+import Comun.DM.Mensaje;
+import Comun.Publiaciones.Interaccion;
+import Comun.Publiaciones.Publicacion;
+import Servidor.ComunicacionClientes.ClienteConectado;
 import Servidor.ComunicacionNodos.MensajeNodo;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -30,6 +34,24 @@ public class ManejoNodo implements Runnable {
                         case "LATIDO":
                             servidor.getMembresia().registrarLatido(mensaje.getIdEmisor());
                             break;
+                        case "PUBLICACION": {
+                            Publicacion pub = (Publicacion) mensaje.getContenido();
+                            GestionUsuarios.difundirPublicacion(pub);
+                            break;
+                        }
+                        case "INTERACCION": {
+                            Interaccion interaccion = (Interaccion) mensaje.getContenido();
+                            GestionUsuarios.procesarInteraccion(interaccion);
+                            break;
+                        }
+                        case "MENSAJE": {
+                            Mensaje msj = (Mensaje) mensaje.getContenido();
+                            ClienteConectado clienteDestino = GestionUsuarios.getCliente(msj.getDestinatario());
+                            if (clienteDestino != null) {
+                                clienteDestino.enviar(msj);
+                            }
+                            break;
+                        }
                         default:
                             System.out.println("Tipo de mensaje desconocido: " +  mensaje.getTipo());
                             break;

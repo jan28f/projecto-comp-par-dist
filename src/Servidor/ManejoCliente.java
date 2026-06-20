@@ -17,14 +17,17 @@ import Comun.Sesion.PerfilUsuario;
 import Comun.Sesion.RespuestaInicio;
 import Comun.Sesion.SolicitudInicio;
 import Servidor.ComunicacionClientes.ClienteConectado;
+import Servidor.ComunicacionNodos.MensajeNodo;
 
 public class ManejoCliente implements Runnable {
     private final Socket socket;
+    private final Servidor servidor;
     private ObjectInputStream entrada = null;
     private ObjectOutputStream salida = null;
 
-    public ManejoCliente(Socket socket) {
+    public ManejoCliente(Socket socket, Servidor servidor) {
         this.socket = socket;
+        this.servidor = servidor;
     }
 
     public void run () {
@@ -68,13 +71,13 @@ public class ManejoCliente implements Runnable {
                             }
                         }
                         else {
-                            if (GestionUsuarios.estaConectado(msj.getDestinatario())) {
-                                ClienteConectado clienteDestino = GestionUsuarios.getCliente(msj.getDestinatario());
+                            ClienteConectado clienteDestino = GestionUsuarios.getCliente(msj.getDestinatario());
+                            if (clienteDestino != null) {
                                 clienteDestino.enviar(msj);
                             }
                             else {
-                                Mensaje error = new Mensaje("Servidor", nombreUsuario, false, "El usuario " + msj.getDestinatario() + " no esta en linea.");
-                                miCliente.enviar(error);
+                                MensajeNodo evento = new MensajeNodo(servidor.getId(), "MENSAJE", servidor.incrementarReloj(), msj);
+                                servidor.getMembresia().difundirEntreNodos(evento);
                             }
                         }
                     }
@@ -113,10 +116,14 @@ public class ManejoCliente implements Runnable {
                         pub.setFechaPublicacion(Instant.now());
                         System.out.println("Difundiendo la nueva publicacion de " + pub.getAutor());
                         GestionUsuarios.difundirPublicacion(pub);
+                        MensajeNodo evento = new MensajeNodo(servidor.getId(), "PUBLICACION", servidor.incrementarReloj(), pub);
+                        servidor.getMembresia().difundirEntreNodos(evento);
                     }
                     else if (obj instanceof Interaccion) {
                         Interaccion interaccionEntrante = (Interaccion) obj;
                         GestionUsuarios.procesarInteraccion(interaccionEntrante);
+                        MensajeNodo evento = new MensajeNodo(servidor.getId(), "INTERACCION", servidor.incrementarReloj(), interaccionEntrante);
+                        servidor.getMembresia().difundirEntreNodos(evento);
                     }
                 }
             }

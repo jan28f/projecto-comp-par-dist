@@ -66,4 +66,13 @@ public class MembresiaNodos {
         }
         return conexion;
     }
+
+    public void difundirEntreNodos(MensajeNodo evento) {
+        for (String id : idsNodos()) {
+            ConexionNodo conexion = getConexion(id);
+            if (conexion != null) {
+                conexion.enviar(evento);
+            }
+        }
+    }
 }
