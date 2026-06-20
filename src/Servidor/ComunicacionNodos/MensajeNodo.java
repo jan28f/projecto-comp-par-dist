@@ -1,4 +1,4 @@
-package Servidor;
+package Servidor.ComunicacionNodos;
 
 import java.io.Serializable;
 

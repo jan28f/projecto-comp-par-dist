@@ -1,4 +1,6 @@
-package Servidor;
+package Servidor.ComunicacionNodos;
+
+import Servidor.Servidor;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;

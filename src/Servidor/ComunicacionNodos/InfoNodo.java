@@ -1,4 +1,4 @@
-package Servidor;
+package Servidor.ComunicacionNodos;
 
 public class InfoNodo {
     private final String ip;
@@ -11,7 +11,7 @@ public class InfoNodo {
         this.ip = ip;
         this.puerto_cliente = puerto_cliente;
         this.puerto_servidor = puerto_servidor;
-        this.activo = true;
+        this.activo = false;
         this.ultimoLatido = System.currentTimeMillis();
     }
 

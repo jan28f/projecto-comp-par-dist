@@ -1,5 +1,8 @@
 package Servidor;
 
+import Servidor.ComunicacionNodos.InfoNodo;
+import Servidor.ComunicacionNodos.MensajeNodo;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;

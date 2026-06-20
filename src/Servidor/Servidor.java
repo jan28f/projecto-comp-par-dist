@@ -1,5 +1,9 @@
 package Servidor;
 
+import Servidor.ComunicacionNodos.EmisorLatidos;
+import Servidor.ComunicacionNodos.InfoNodo;
+import Servidor.ComunicacionNodos.MonitorLatidos;
+
 import java.util.HashMap;
 import java.io.BufferedReader;
 import java.io.FileReader;

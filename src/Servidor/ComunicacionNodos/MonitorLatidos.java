@@ -1,4 +1,6 @@
-package Servidor;
+package Servidor.ComunicacionNodos;
+
+import Servidor.Servidor;
 
 public class MonitorLatidos implements Runnable {
     private static final int intervaloEspera = 5000;
