@@ -8,6 +8,8 @@ import Servidor.ComunicacionNodos.MensajeNodo;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
+import Servidor.ComunicacionNodos.ConexionNodo;
+import Servidor.ComunicacionNodos.EleccionBully;
 
 public class ManejoNodo implements Runnable {
     private final Socket socketNodo;
@@ -50,6 +52,41 @@ public class ManejoNodo implements Runnable {
                                 clienteDestino.enviar(msj);
                             }
                             servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe MENSAJE de " + mensaje.getIdEmisor() + " para=" + msj.getDestinatario());
+                            break;
+                        }
+                        case "ELECCION": {
+                            // Alguien con ID menor nos pregunta si seguimos vivos
+                            servidor.getRegistro().registrar(mensaje.getReloj(),
+                                    "Recibe ELECCION de " + mensaje.getIdEmisor());
+
+                            // Responder OK (soy mayor, me encargo yo)
+                            ConexionNodo conexionEmisor = servidor.getMembresia().getConexion(mensaje.getIdEmisor());
+                            if (conexionEmisor != null) {
+                                MensajeNodo ok = new MensajeNodo(
+                                        servidor.getId(), "OK", servidor.incrementarReloj(), null);
+                                conexionEmisor.enviar(ok);
+                            }
+                            // Iniciar mi propia elección (si no está en curso)
+                            servidor.getBully().iniciarEleccion();
+                            break;
+                        }
+                        case "OK": {
+                            // Alguien mayor que yo sigue vivo — cancelo mi elección
+                            servidor.getRegistro().registrar(mensaje.getReloj(),
+                                    "Recibe OK de " + mensaje.getIdEmisor());
+                            servidor.getBully().recibirOk();
+                            break;
+                        }
+                        case "COORDINADOR": {
+                            // Alguien se autoproclamó coordinador
+                            String nuevoCoord = (String) mensaje.getContenido();
+                            servidor.getBully().recibirCoordinador(nuevoCoord);
+                            servidor.getRegistro().registrar(mensaje.getReloj(),
+                                    "Nuevo COORDINADOR: " + nuevoCoord);
+                            break;
+                        }
+                        case "LATIDO": {
+                            servidor.getMembresia().registrarLatido(mensaje.getIdEmisor());
                             break;
                         }
                         default:

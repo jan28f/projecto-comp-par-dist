@@ -13,14 +13,20 @@ public class MonitorLatidos implements Runnable {
 
     public void run() {
         while (true) {
-            long ahora = System.currentTimeMillis();
+            long hora = System.currentTimeMillis();
             boolean huboCambios = false;
 
             for (String idNodo : servidor.getMembresia().idsNodos()) {
                 InfoNodo info = servidor.getMembresia().getNodo(idNodo);
-                if (info.getActivo() && ahora - info.getUltimoLatido() > TimeOut) {
+                if (info.getActivo() && hora - info.getUltimoLatido() > TimeOut) {
                     if (servidor.getMembresia().marcarCaido(idNodo)) {
                         huboCambios = true;
+                        String coord = servidor.getBully().getCoordinador();
+                        System.out.println("[DEBUG] Nodo caído: " + idNodo + " | Coordinador actual: " + coord);
+                        if (coord == null || idNodo.equals(coord)) {
+                            System.out.println("[BULLY] Iniciando elección por caída de " + idNodo);
+                            servidor.getBully().iniciarEleccion();
+                        }
                     }
                 }
             }

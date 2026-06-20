@@ -1,9 +1,7 @@
 package Servidor;
 
-import Servidor.ComunicacionNodos.EmisorLatidos;
-import Servidor.ComunicacionNodos.InfoNodo;
-import Servidor.ComunicacionNodos.MembresiaNodos;
-import Servidor.ComunicacionNodos.MonitorLatidos;
+import Servidor.ComunicacionNodos.*;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -18,6 +16,7 @@ public class Servidor {
     private MembresiaNodos membresia =  new MembresiaNodos();
     private long reloj;
     private RegistrarEventos registro;
+    private EleccionBully bully;
 
     public String getId() {
         return id;
@@ -44,6 +43,8 @@ public class Servidor {
     public RegistrarEventos getRegistro() {
         return registro;
     }
+
+    public EleccionBully getBully() { return bully; }
 
     protected void escuchaNodos() {
         ServerSocket servidorNodos = null;
@@ -159,6 +160,7 @@ public class Servidor {
         Servidor servidor = new Servidor();
         servidor.cargarConfiguracion(id);
         servidor.getMembresia().mostrarEstado();
+        servidor.bully = new EleccionBully(servidor);
         (new Thread(servidor::escuchaNodos)).start();
         (new Thread(new EmisorLatidos(servidor))).start();
         (new Thread(new MonitorLatidos(servidor))).start();
