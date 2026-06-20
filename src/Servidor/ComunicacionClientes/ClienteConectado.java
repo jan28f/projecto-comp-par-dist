@@ -56,7 +56,7 @@ public class ClienteConectado {
                 salida.flush();
             }
         }
-        catch (InterruptedException _) {}
+        catch (InterruptedException ignored) {}
         catch (IOException e) {
             System.out.println("Error de comunicación en el canal de " + usuario);
         }
