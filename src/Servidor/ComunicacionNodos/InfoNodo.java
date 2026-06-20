@@ -4,8 +4,8 @@ public class InfoNodo {
     private final String ip;
     private final int puerto_cliente;
     private final int puerto_servidor;
-    private boolean activo;
-    private long ultimoLatido;
+    private volatile boolean activo;
+    private volatile long ultimoLatido;
 
     public InfoNodo(String ip, int puerto_cliente, int puerto_servidor) {
         this.ip = ip;

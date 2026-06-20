@@ -1,8 +1,6 @@
 package Servidor;
 
-import Servidor.ComunicacionNodos.InfoNodo;
 import Servidor.ComunicacionNodos.MensajeNodo;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
@@ -30,19 +28,11 @@ public class ManejoNodo implements Runnable {
 
                     switch (mensaje.getTipo()) {
                         case "LATIDO":
-                            InfoNodo nodo = servidor.obtenerNodo(mensaje.getIdEmisor());
-                            if (nodo != null) {
-                                boolean estabaCaido = !nodo.getActivo();
-                                nodo.setActivo(true);
-                                nodo.setUltimoLatido(System.currentTimeMillis());
-                                if (estabaCaido) {
-                                    System.out.println("El nodo " + mensaje.getIdEmisor() + " está activo");
-                                    servidor.mostrarEstadoNodos();
-                                }
-                            }
+                            servidor.getMembresia().registrarLatido(mensaje.getIdEmisor());
                             break;
                         default:
                             System.out.println("Tipo de mensaje desconocido: " +  mensaje.getTipo());
+                            break;
                     }
                 }
             }

@@ -2,9 +2,8 @@ package Servidor;
 
 import Servidor.ComunicacionNodos.EmisorLatidos;
 import Servidor.ComunicacionNodos.InfoNodo;
+import Servidor.ComunicacionNodos.MembresiaNodos;
 import Servidor.ComunicacionNodos.MonitorLatidos;
-
-import java.util.HashMap;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -16,30 +15,11 @@ public class Servidor {
     private String id;
     private int puerto_clientes = -1;
     private int puerto_nodos = -1;
-    private HashMap<String, InfoNodo> nodos;
+    private MembresiaNodos membresia =  new MembresiaNodos();
     private int reloj;
-
-    public void mostrarEstadoNodos() {
-        System.out.println("---Estado nodos---");
-        System.out.println("ID\t| IP\t| puerto_clientes\t| puerto_nodos\t");
-        for (String id : nodos.keySet()) {
-            InfoNodo info = nodos.get(id);
-            String estado = info.getActivo() ? "ACTIVO" : "CAÍDO";
-            System.out.println(id + "\t| " + info.getIp() + "\t| " +
-                    info.getPuerto_cliente() + "\t\t| " +
-                    info.getPuerto_servidor() + "\t\t| " + estado);
-        }
-    }
 
     public String getId() {
         return id;
-    }
-
-    public InfoNodo obtenerNodo(String idNodo) {
-        return nodos.get(idNodo);
-    }
-    public HashMap<String, InfoNodo> obtenerNodos() {
-        return nodos;
     }
 
     public synchronized int incrementarReloj() {
@@ -54,6 +34,10 @@ public class Servidor {
 
     public synchronized int getReloj() {
         return reloj;
+    }
+
+    public MembresiaNodos getMembresia() {
+        return membresia;
     }
 
     protected void escuchaNodos() {
@@ -132,7 +116,6 @@ public class Servidor {
         try {
             BufferedReader archivo = new BufferedReader(new FileReader(ruta_archivo));
             String linea;
-            nodos = new HashMap<>();
 
             while ((linea = archivo.readLine()) != null) {
                 String[] partes = linea.split(",");
@@ -146,7 +129,7 @@ public class Servidor {
                     this.puerto_nodos = puerto_nodos;
                 }
                 else {
-                    nodos.put(partes[0], new InfoNodo(ip, puerto_clientes, puerto_nodos));
+                    membresia.agregarNodo(partes[0].trim(), new InfoNodo(ip, puerto_clientes, puerto_nodos));
                 }
             }
             archivo.close();
@@ -169,7 +152,7 @@ public class Servidor {
         System.out.println("Iniciando servidor");
         Servidor servidor = new Servidor();
         servidor.cargarConfiguracion(id);
-        servidor.mostrarEstadoNodos();
+        servidor.getMembresia().mostrarEstado();
         (new Thread(servidor::escuchaNodos)).start();
         (new Thread(new EmisorLatidos(servidor))).start();
         (new Thread(new MonitorLatidos(servidor))).start();

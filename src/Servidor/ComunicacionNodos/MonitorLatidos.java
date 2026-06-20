@@ -16,18 +16,16 @@ public class MonitorLatidos implements Runnable {
             long ahora = System.currentTimeMillis();
             boolean huboCambios = false;
 
-            for (String idNodo : servidor.obtenerNodos().keySet()) {
-                InfoNodo info = servidor.obtenerNodo(idNodo);
-
+            for (String idNodo : servidor.getMembresia().idsNodos()) {
+                InfoNodo info = servidor.getMembresia().getNodo(idNodo);
                 if (info.getActivo() && ahora - info.getUltimoLatido() > TimeOut) {
-                    info.setActivo(false);
-                    System.out.println("El nodo " + idNodo + " ha caído");
-                    huboCambios = true;
+                    if (servidor.getMembresia().marcarCaido(idNodo)) {
+                        huboCambios = true;
+                    }
                 }
             }
-
             if (huboCambios) {
-                servidor.mostrarEstadoNodos();
+                servidor.getMembresia().mostrarEstado();
             }
 
             try {
