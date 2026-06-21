@@ -219,4 +219,42 @@ public class GestionUsuarios {
             candado.writeLock().unlock();
         }
     }
+
+    public static Object[] exportarEstado() {
+        candado.readLock().lock();
+        try {
+            return new Object[]{
+                    new ArrayDeque<>(historialPublicaciones),
+                    new HashMap<>(grupos),
+                    new HashMap<>(perfiles)
+            };
+        } finally {
+            candado.readLock().unlock();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static void importarEstado(Object[] estadoGlobal) {
+        candado.writeLock().lock();
+        try {
+            ArrayDeque<Publicacion> historialRecibido = (ArrayDeque<Publicacion>) estadoGlobal[0];
+            HashMap<String, ArrayList<String>> gruposRecibidos = (HashMap<String, ArrayList<String>>) estadoGlobal[1];
+            HashMap<String, PerfilUsuario> perfilesRecibidos = (HashMap<String, PerfilUsuario>) estadoGlobal[2];
+
+            historialPublicaciones.clear();
+            historialPublicaciones.addAll(historialRecibido);
+
+            grupos.clear();
+            grupos.putAll(gruposRecibidos);
+
+            perfiles.clear();
+            perfiles.putAll(perfilesRecibidos);
+
+            System.out.println("[SINCRONIZACIÓN] Memoria local actualizada. Publicaciones: " + historialPublicaciones.size());
+        } catch (Exception e) {
+            System.out.println("[ERROR] Fallo al importar el estado global: " + e.getMessage());
+        } finally {
+            candado.writeLock().unlock();
+        }
+    }
 }

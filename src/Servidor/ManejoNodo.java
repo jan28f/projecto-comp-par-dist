@@ -83,6 +83,39 @@ public class ManejoNodo implements Runnable {
                             servidor.getBully().recibirCoordinador(nuevoCoord);
                             servidor.getRegistro().registrar(mensaje.getReloj(),
                                     "Nuevo COORDINADOR: " + nuevoCoord);
+
+                            // NUEVO: Si no soy yo el coordinador, le pido el estado actual
+                            if (!nuevoCoord.equals(servidor.getId())) {
+                                ConexionNodo conexionCoord = servidor.getMembresia().getConexion(nuevoCoord);
+                                if (conexionCoord != null) {
+                                    MensajeNodo reqEstado = new MensajeNodo(
+                                            servidor.getId(), "SOLICITAR_ESTADO", servidor.incrementarReloj(), null);
+                                    conexionCoord.enviar(reqEstado);
+                                    System.out.println("[ESTADO] Solicitando sincronización al coordinador: " + nuevoCoord);
+                                }
+                            }
+                            break;
+                        }
+                        case "SOLICITAR_ESTADO": {
+                            // El coordinador recibe esta petición de un nodo recién iniciado
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe SOLICITAR_ESTADO de " + mensaje.getIdEmisor());
+                            System.out.println("[ESTADO] Enviando copia de memoria global a nodo " + mensaje.getIdEmisor());
+
+                            Object[] estadoActual = GestionUsuarios.exportarEstado();
+                            ConexionNodo conexionEmisor = servidor.getMembresia().getConexion(mensaje.getIdEmisor());
+
+                            if (conexionEmisor != null) {
+                                MensajeNodo resEstado = new MensajeNodo(
+                                        servidor.getId(), "SINCRONIZAR_ESTADO", servidor.incrementarReloj(), estadoActual);
+                                conexionEmisor.enviar(resEstado);
+                            }
+                            break;
+                        }
+                        case "SINCRONIZAR_ESTADO": {
+                            // El nodo recién iniciado recibe la memoria del coordinador
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe SINCRONIZAR_ESTADO de " + mensaje.getIdEmisor());
+                            Object[] estadoRecibido = (Object[]) mensaje.getContenido();
+                            GestionUsuarios.importarEstado(estadoRecibido);
                             break;
                         }
                         case "LATIDO": {
