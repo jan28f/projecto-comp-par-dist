@@ -4,10 +4,14 @@ import Servidor.Servidor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ExclusionMutua {
+    private static final long TIMEOUT_RESPUESTAS = 5000;
     private final Servidor servidor;
     private final Object candado = new Object();
+    private final ReentrantLock candadoLocal = new ReentrantLock(true);
     private boolean solicitando = false;
     private long timestampSolicitud = -1;
     private CountDownLatch latchRespuestas;
@@ -18,6 +22,7 @@ public class ExclusionMutua {
     }
 
     public void solicitarAcceso() {
+        candadoLocal.lock();
         List<String> nodosActivos;
         CountDownLatch latchLocal;
 
@@ -43,7 +48,10 @@ public class ExclusionMutua {
         servidor.getRegistro().registrar(timestampSolicitud, "RA_SOLICITA acceso al recurso compartido (likes)");
 
         try {
-            latchLocal.await();
+            if (!latchLocal.await(TIMEOUT_RESPUESTAS, TimeUnit.MILLISECONDS)) {
+                servidor.getRegistro().registrar(servidor.getReloj(),
+                        "RA_TIMEOUT esperando respuestas, continúa best-effort");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -52,22 +60,26 @@ public class ExclusionMutua {
     }
 
     public void liberarAcceso() {
-        List<String> diferidas;
+        try {
+            List<String> diferidas;
 
-        synchronized (candado) {
-            solicitando = false;
-            diferidas = new ArrayList<>(solicitudesDiferidas);
-            solicitudesDiferidas.clear();
-        }
-
-        servidor.getRegistro().registrar(servidor.incrementarReloj(), "RA_LIBERA acceso al recurso compartido (likes)");
-
-        for (String idDestino : diferidas) {
-            ConexionNodo conexion = servidor.getMembresia().getConexion(idDestino);
-            if (conexion != null) {
-                MensajeNodo respuesta = new MensajeNodo(servidor.getId(), "RA_REPLY", servidor.incrementarReloj(), null);
-                conexion.enviar(respuesta);
+            synchronized (candado) {
+                solicitando = false;
+                diferidas = new ArrayList<>(solicitudesDiferidas);
+                solicitudesDiferidas.clear();
             }
+
+            servidor.getRegistro().registrar(servidor.incrementarReloj(), "RA_LIBERA acceso al recurso compartido (likes)");
+
+            for (String idDestino : diferidas) {
+                ConexionNodo conexion = servidor.getMembresia().getConexion(idDestino);
+                if (conexion != null) {
+                    MensajeNodo respuesta = new MensajeNodo(servidor.getId(), "RA_REPLY", servidor.incrementarReloj(), null);
+                    conexion.enviar(respuesta);
+                }
+            }
+        } finally {
+            candadoLocal.unlock();
         }
     }
 

@@ -187,7 +187,7 @@ public class GestionUsuarios {
         candado.readLock().lock();
         try {
             ArrayList<Publicacion> lista = new ArrayList<>(historialPublicaciones);
-            lista.sort(Comparator.comparing(Publicacion::getIdPublicacion).thenComparing(Publicacion::getIdNodoOrigen));
+            lista.sort(Comparator.comparing(Publicacion::getLamport).thenComparing(Publicacion::getIdNodoOrigen));
             return lista;
         } finally {
             candado.readLock().unlock();
