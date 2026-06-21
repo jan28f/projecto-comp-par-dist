@@ -98,6 +98,10 @@ public class ManejoNodo implements Runnable {
                         }
                         case "SOLICITAR_ESTADO": {
                             // El coordinador recibe esta petición de un nodo recién iniciado
+                            if (!GestionUsuarios.tieneEstado()) {
+                                System.out.println("[ESTADO] Aún sin estado válido, no respondo a " + mensaje.getIdEmisor());
+                                break;
+                            }
                             servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe SOLICITAR_ESTADO de " + mensaje.getIdEmisor());
                             System.out.println("[ESTADO] Enviando copia de memoria global a nodo " + mensaje.getIdEmisor());
 
@@ -120,6 +124,14 @@ public class ManejoNodo implements Runnable {
                         }
                         case "LATIDO": {
                             servidor.getMembresia().registrarLatido(mensaje.getIdEmisor());
+                            if (!GestionUsuarios.tieneEstado() && servidor.solicitarSincronizacionUnaVez()) {
+                                ConexionNodo c = servidor.getMembresia().getConexion(mensaje.getIdEmisor());
+                                if (c != null) {
+                                    c.enviar(new MensajeNodo(servidor.getId(), "SOLICITAR_ESTADO",
+                                            servidor.incrementarReloj(), null));
+                                    System.out.println("[ESTADO] Pido sincronización a " + mensaje.getIdEmisor() + " (memoria vacía)");
+                                }
+                            }
                             break;
                         }
                         case "RA_REQUEST": {

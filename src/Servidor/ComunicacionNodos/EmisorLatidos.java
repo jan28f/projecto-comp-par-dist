@@ -21,7 +21,9 @@ public class EmisorLatidos implements Runnable {
             for (String idNodo : servidor.getMembresia().idsNodos()) {
                 ConexionNodo conexion = servidor.getMembresia().getConexion(idNodo);
                 if (conexion != null) {
-                    conexion.enviar(mensaje);
+                    // Envío en paralelo: un connect bloqueante a un nodo caído
+                    // (timeout 2s) no debe retrasar los latidos a los nodos sanos.
+                    new Thread(() -> conexion.enviar(mensaje)).start();
                 }
             }
             try {

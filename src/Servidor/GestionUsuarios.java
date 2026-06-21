@@ -220,6 +220,15 @@ public class GestionUsuarios {
         }
     }
 
+    public static boolean tieneEstado() {
+        candado.readLock().lock();
+        try {
+            return !historialPublicaciones.isEmpty() || !perfiles.isEmpty();
+        } finally {
+            candado.readLock().unlock();
+        }
+    }
+
     public static Object[] exportarEstado() {
         candado.readLock().lock();
         try {
@@ -240,6 +249,12 @@ public class GestionUsuarios {
             ArrayDeque<Publicacion> historialRecibido = (ArrayDeque<Publicacion>) estadoGlobal[0];
             HashMap<String, ArrayList<String>> gruposRecibidos = (HashMap<String, ArrayList<String>>) estadoGlobal[1];
             HashMap<String, PerfilUsuario> perfilesRecibidos = (HashMap<String, PerfilUsuario>) estadoGlobal[2];
+
+            boolean recibidoVacio = historialRecibido.isEmpty() && perfilesRecibidos.isEmpty();
+            if (recibidoVacio && (!historialPublicaciones.isEmpty() || !perfiles.isEmpty())) {
+                System.out.println("[SINCRONIZACIÓN] Estado recibido vacío: conservo el local");
+                return;
+            }
 
             historialPublicaciones.clear();
             historialPublicaciones.addAll(historialRecibido);

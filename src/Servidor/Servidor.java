@@ -18,6 +18,15 @@ public class Servidor {
     private RegistrarEventos registro;
     private EleccionBully bully;
     private ExclusionMutua exclusionMutua;
+    private boolean sincronizacionPedida = false;
+
+    public synchronized boolean solicitarSincronizacionUnaVez() {
+        if (sincronizacionPedida) {
+            return false;
+        }
+        sincronizacionPedida = true;
+        return true;
+    }
 
     public String getId() {
         return id;
