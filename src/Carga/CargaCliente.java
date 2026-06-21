@@ -2,7 +2,6 @@ package Carga;
 
 import java.io.*;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ThreadLocalRandom;
@@ -15,9 +14,12 @@ public class CargaCliente implements Runnable {
     private final String usuario;
     private final String destinoFijo;
     private final long duracionMs;
-    private final AtomicLong exitoOps;
-    private final AtomicLong errorOps;
-    private final List<Long> latencias;
+    private final AtomicLong exitoOpsNormales;
+    private final AtomicLong errorOpsNormales;
+    private final List<Long> latenciasNormales;
+    private final AtomicLong exitoOpsCaida;
+    private final AtomicLong errorOpsCaida;
+    private final List<Long> latenciasCaida;
     private final long inicioGlobal;
     private final List<NodoInfo> nodos;
 
@@ -33,14 +35,18 @@ public class CargaCliente implements Runnable {
     private volatile boolean haCaido = false;
 
     public CargaCliente(String usuario, long duracionSegundos, String destinoFijo,
-                        AtomicLong exitoOps, AtomicLong errorOps, List<Long> latencias,
+                        AtomicLong exitoOpsNormales, AtomicLong errorOpsNormales, List<Long> latenciasNormales,
+                        AtomicLong exitoOpsCaida, AtomicLong errorOpsCaida, List<Long> latenciasCaida,
                         long inicioGlobal, List<NodoInfo> nodos) {
         this.usuario = usuario;
         this.destinoFijo = destinoFijo;
         this.duracionMs = duracionSegundos * 1000;
-        this.exitoOps = exitoOps;
-        this.errorOps = errorOps;
-        this.latencias = latencias;
+        this.exitoOpsNormales = exitoOpsNormales;
+        this.errorOpsNormales = errorOpsNormales;
+        this.latenciasNormales = latenciasNormales;
+        this.exitoOpsCaida = exitoOpsCaida;
+        this.errorOpsCaida = errorOpsCaida;
+        this.latenciasCaida = latenciasCaida;
         this.inicioGlobal = inicioGlobal;
         this.nodos = nodos;
     }
@@ -71,7 +77,7 @@ public class CargaCliente implements Runnable {
                         continue;
                     }
                 }
-                enviarMensajeFijo();
+                enviarOperacionAleatoria();
                 try { Thread.sleep(ThreadLocalRandom.current().nextInt(50, 200)); } catch (InterruptedException e) {}
             }
             cerrarConexion();
@@ -93,7 +99,6 @@ public class CargaCliente implements Runnable {
                 if (respuesta.getEstado()) {
                     connected = true;
                     feed.addAll(respuesta.getUltimasPublicaciones());
-                    System.out.println("Cliente " + usuario + " conectado al nodo " + nodo.getPuertoCliente());
                     return;
                 } else {
                     cerrarConexion();
@@ -102,14 +107,13 @@ public class CargaCliente implements Runnable {
                 cerrarConexion();
             }
         }
-        throw new IOException("No se pudo conectar a ningún nodo");
+        throw new IOException("No se pudo conectar a ningun nodo");
     }
 
     private void reconectar() {
         try {
             cerrarConexion();
             conectar();
-            System.out.println("Cliente " + usuario + " reconectado.");
         } catch (Exception e) {
             connected = false;
         }
@@ -141,25 +145,47 @@ public class CargaCliente implements Runnable {
                     }
                 }
             }
-        } catch (SocketException e) {
-            connected = false;
-        } catch (IOException | ClassNotFoundException e) {
-            connected = false;
         } catch (Exception e) {
             connected = false;
         }
     }
 
-    private void enviarMensajeFijo() throws IOException {
-        Mensaje msj = new Mensaje(usuario, destinoFijo, false,
-                "Mensaje " + System.currentTimeMillis());
+    private void enviarOperacionAleatoria() {
         long inicio = System.nanoTime();
-        out.writeObject(msj);
-        out.flush();
+        boolean exito = false;
+        try {
+            if (ThreadLocalRandom.current().nextBoolean() && !feed.isEmpty()) {
+                int indice = ThreadLocalRandom.current().nextInt(feed.size());
+                Publicacion pub = feed.get(indice);
+                Interaccion interaccion = new Interaccion("LIKE", pub.getIdPublicacion(), usuario, "");
+                out.writeObject(interaccion);
+            } else {
+                Mensaje msj = new Mensaje(usuario, destinoFijo, false, "Carga " + System.currentTimeMillis());
+                out.writeObject(msj);
+            }
+            out.flush();
+            exito = true;
+        } catch (Exception e) {
+            connected = false;
+            exito = false;
+        }
         long fin = System.nanoTime();
-        exitoOps.incrementAndGet();
-        synchronized (latencias) {
-            latencias.add((fin - inicio) / 1_000_000);
+        long latencia = (fin - inicio) / 1_000_000;
+
+        if (haCaido) {
+            if (exito) {
+                exitoOpsCaida.incrementAndGet();
+                synchronized (latenciasCaida) { latenciasCaida.add(latencia); }
+            } else {
+                errorOpsCaida.incrementAndGet();
+            }
+        } else {
+            if (exito) {
+                exitoOpsNormales.incrementAndGet();
+                synchronized (latenciasNormales) { latenciasNormales.add(latencia); }
+            } else {
+                errorOpsNormales.incrementAndGet();
+            }
         }
     }
 

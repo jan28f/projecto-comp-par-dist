@@ -40,12 +40,60 @@ public class GeneradorCarga {
         }
     }
 
+    private static void imprimirMetricasLatencia(List<Long> latencias, String etiqueta) {
+        if (latencias.isEmpty()) {
+            System.out.println(etiqueta + " - Sin datos de latencia");
+            return;
+        }
+        double media = latencias.stream().mapToLong(Long::longValue).average().orElse(0);
+        Collections.sort(latencias);
+        int size = latencias.size();
+        long p50 = latencias.get(size * 50 / 100);
+        long p90 = latencias.get(size * 90 / 100);
+        long p95 = latencias.get(size * 95 / 100);
+        long p99 = latencias.get(size * 99 / 100);
+
+        System.out.println(etiqueta + " - Latencia media (ms): " + String.format("%.2f", media));
+        System.out.println(etiqueta + " - Percentil 50: " + p50 + " ms");
+        System.out.println(etiqueta + " - Percentil 90: " + p90 + " ms");
+        System.out.println(etiqueta + " - Percentil 95: " + p95 + " ms");
+        System.out.println(etiqueta + " - Percentil 99: " + p99 + " ms");
+    }
+
+    private static void contarMensajesCoordinacion(String[][] nodosConfig) {
+        long totalEleccion = 0;
+        long totalOk = 0;
+        long totalCoordinador = 0;
+        long totalRaRequest = 0;
+        long totalRaReply = 0;
+
+        for (String[] cfg : nodosConfig) {
+            Path logPath = Paths.get("log_" + cfg[0] + ".txt");
+            if (!Files.exists(logPath)) continue;
+            try {
+                for (String linea : Files.readAllLines(logPath)) {
+                    if (linea.contains("ELECCION")) totalEleccion++;
+                    if (linea.contains("OK")) totalOk++;
+                    if (linea.contains("SOY COORDINADOR") || linea.contains("NUEVO_COORDINADOR")) totalCoordinador++;
+                    if (linea.contains("RA_REQUEST")) totalRaRequest++;
+                    if (linea.contains("RA_REPLY")) totalRaReply++;
+                }
+            } catch (IOException e) {}
+        }
+
+        System.out.println("\n=== MENSAJES DE COORDINACION (TOTALES) ===");
+        System.out.println("ELECCION: " + totalEleccion);
+        System.out.println("OK: " + totalOk);
+        System.out.println("COORDINADOR: " + totalCoordinador);
+        System.out.println("RA_REQUEST: " + totalRaRequest);
+        System.out.println("RA_REPLY: " + totalRaReply);
+    }
+
     public static void main(String[] args) throws Exception {
         int numClientes = 50;
         long duracionSegundos = 60;
         long tiempoAntesFalla = 30;
 
-        // Configuración de nodos (ID, puerto cliente, puerto nodo)
         String[][] nodosConfig = {
                 {"1", "1003", "1004"},
                 {"2", "1005", "1006"},
@@ -53,22 +101,17 @@ public class GeneradorCarga {
                 {"4", "1009", "1010"}
         };
 
-        // Asegurar que el archivo nodos.csv existe en la ruta esperada
         Path rutaCSV = Paths.get("src", "Servidor", "nodos.csv");
         if (!Files.exists(rutaCSV)) {
-            System.out.println("Creando archivo nodos.csv en " + rutaCSV.toAbsolutePath());
             Files.createDirectories(rutaCSV.getParent());
             try (BufferedWriter writer = Files.newBufferedWriter(rutaCSV)) {
                 for (String[] cfg : nodosConfig) {
-                    writer.write(cfg[0] + ",localhost," + cfg[1] + "," + cfg[2]);
+                    writer.write(cfg[0] + ",127.0.0.1," + cfg[1] + "," + cfg[2]);
                     writer.newLine();
                 }
             }
-        } else {
-            System.out.println("Archivo nodos.csv ya existe en " + rutaCSV.toAbsolutePath());
         }
 
-        // Lanzar nodos como procesos hijos
         List<Process> procesosNodos = new ArrayList<>();
         for (String[] cfg : nodosConfig) {
             String id = cfg[0];
@@ -76,32 +119,26 @@ public class GeneradorCarga {
                     "java", "-cp", System.getProperty("java.class.path"),
                     "Servidor.Servidor", id
             );
-            pb.inheritIO(); // redirige salida a la consola del generador
+            pb.inheritIO();
             Process p = pb.start();
             procesosNodos.add(p);
-            System.out.println("Lanzado nodo " + id + " (PID: " + p.pid() + ")");
         }
 
-        System.out.println("Esperando 5 segundos para que los nodos arranquen...");
         Thread.sleep(5000);
 
-        // Crear lista de NodoInfo para los clientes
         List<NodoInfo> nodosInfo = new ArrayList<>();
         for (String[] cfg : nodosConfig) {
             nodosInfo.add(new NodoInfo("127.0.0.1", Integer.parseInt(cfg[1])));
         }
 
-        // Generar usuarios y parejas (50 usuarios, emparejados: 0↔49, 1↔48, ...)
-        List<String> usuarios = new ArrayList<>();
-        for (int i = 0; i < numClientes; i++) {
-            usuarios.add("carga" + i);
-        }
+        AtomicLong exitoOpsNormales = new AtomicLong(0);
+        AtomicLong errorOpsNormales = new AtomicLong(0);
+        List<Long> latenciasNormales = Collections.synchronizedList(new ArrayList<>());
+        AtomicLong exitoOpsCaida = new AtomicLong(0);
+        AtomicLong errorOpsCaida = new AtomicLong(0);
+        List<Long> latenciasCaida = Collections.synchronizedList(new ArrayList<>());
 
-        AtomicLong exitoOps = new AtomicLong(0);
-        AtomicLong errorOps = new AtomicLong(0);
-        List<Long> latencias = Collections.synchronizedList(new ArrayList<>());
         long inicioGlobal = System.currentTimeMillis();
-
         ExecutorService pool = Executors.newFixedThreadPool(numClientes);
         List<CargaCliente> clientes = new ArrayList<>();
 
@@ -111,12 +148,13 @@ public class GeneradorCarga {
             String destino = "carga" + parejaIndex;
 
             CargaCliente c = new CargaCliente(user, duracionSegundos, destino,
-                    exitoOps, errorOps, latencias, inicioGlobal, nodosInfo);
+                    exitoOpsNormales, errorOpsNormales, latenciasNormales,
+                    exitoOpsCaida, errorOpsCaida, latenciasCaida,
+                    inicioGlobal, nodosInfo);
             clientes.add(c);
             pool.submit(c);
         }
 
-        System.out.println("Esperando " + tiempoAntesFalla + " segundos para inducir falla...");
         Thread.sleep(tiempoAntesFalla * 1000);
 
         String idCoordinadorReal = obtenerCoordinadorReal(nodosConfig);
@@ -128,41 +166,44 @@ public class GeneradorCarga {
                     break;
                 }
             }
-        } else {
-            System.out.println("No se pudo determinar el coordinador real desde los logs, se usara el nodo " + nodosConfig[0][0]);
         }
 
-        System.out.println("=== INDUCIENDO FALLA: matando nodo " + nodosConfig[indiceCoordinador][0] + " (coordinador real) ===");
+        System.out.println("=== INDUCIENDO FALLA: nodo " + nodosConfig[indiceCoordinador][0] + " ===");
         Process nodoCoordinador = procesosNodos.get(indiceCoordinador);
         nodoCoordinador.destroy();
-        Thread.sleep(2000); // dar tiempo a que el sistema detecte la caída
+        Thread.sleep(2000);
 
         pool.shutdown();
         boolean terminado = pool.awaitTermination(duracionSegundos + 30, TimeUnit.SECONDS);
         if (!terminado) pool.shutdownNow();
 
-        // Estadísticas
-        long totalExitos = exitoOps.get();
-        long totalErrores = errorOps.get();
+        long totalExitosN = exitoOpsNormales.get();
+        long totalErroresN = errorOpsNormales.get();
+        long totalExitosC = exitoOpsCaida.get();
+        long totalErroresC = errorOpsCaida.get();
+
+        long totalExitos = totalExitosN + totalExitosC;
+        long totalErrores = totalErroresN + totalErroresC;
         long totalOps = totalExitos + totalErrores;
+        double throughput = (double) totalOps / duracionSegundos;
 
-        System.out.println("\n=== RESULTADOS DE CARGA (SOLO MENSAJES POR PAREJAS) ===");
-        System.out.println("Clientes: " + numClientes);
-        System.out.println("Duración: " + duracionSegundos + " segundos");
-        System.out.println("Operaciones exitosas: " + totalExitos);
-        System.out.println("Operaciones con error: " + totalErrores);
-        System.out.println("Total operaciones: " + totalOps);
-        if (totalExitos > 0) {
-            double media = latencias.stream().mapToLong(Long::longValue).average().orElse(0);
-            System.out.println("Latencia media (ms): " + String.format("%.2f", media));
-            Collections.sort(latencias);
-            int size = latencias.size();
-            System.out.println("Percentil 50: " + latencias.get(size * 50 / 100) + " ms");
-            System.out.println("Percentil 90: " + latencias.get(size * 90 / 100) + " ms");
-            System.out.println("Percentil 99: " + latencias.get(size * 99 / 100) + " ms");
-        }
+        System.out.println("\n=== RESULTADOS DE CARGA ===");
+        System.out.println("Throughput global: " + String.format("%.2f", throughput) + " ops/seg");
+        System.out.println("Operaciones totales exitosas: " + totalExitos);
+        System.out.println("Operaciones totales con error: " + totalErrores);
 
-        // Análisis de falla
+        System.out.println("\n--- PERIODO NORMAL ---");
+        System.out.println("Exitos: " + totalExitosN);
+        System.out.println("Errores: " + totalErroresN);
+        imprimirMetricasLatencia(latenciasNormales, "Normal");
+
+        System.out.println("\n--- PERIODO TRAS CAIDA ---");
+        System.out.println("Exitos: " + totalExitosC);
+        System.out.println("Errores: " + totalErroresC);
+        imprimirMetricasLatencia(latenciasCaida, "Caida");
+
+        contarMensajesCoordinacion(nodosConfig);
+
         long caidaMin = Long.MAX_VALUE;
         long recMax = 0;
         boolean algunaCaida = false;
@@ -176,15 +217,11 @@ public class GeneradorCarga {
         if (algunaCaida) {
             long tiempoRecuperacion = recMax - caidaMin;
             System.out.println("\n=== FALLA INDUCIDA ===");
-            System.out.println("Tiempo de recuperación (desde primera caída hasta última reconexión): " + tiempoRecuperacion + " ms");
-        } else {
-            System.out.println("\nNo se detectaron caídas.");
+            System.out.println("Tiempo de recuperacion maximo detectado por clientes: " + tiempoRecuperacion + " ms");
         }
 
-        // Matar todos los procesos nodos al finalizar
         for (Process p : procesosNodos) {
             if (p.isAlive()) p.destroy();
         }
-        System.out.println("Prueba finalizada.");
     }
 }
