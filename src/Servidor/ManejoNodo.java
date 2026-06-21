@@ -1,8 +1,15 @@
 package Servidor;
 
+import Comun.DM.Mensaje;
+import Comun.Publiaciones.Interaccion;
+import Comun.Publiaciones.Publicacion;
+import Servidor.ComunicacionClientes.ClienteConectado;
+import Servidor.ComunicacionNodos.MensajeNodo;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
+import Servidor.ComunicacionNodos.ConexionNodo;
+import Servidor.ComunicacionNodos.EleccionBully;
 
 public class ManejoNodo implements Runnable {
     private final Socket socketNodo;
@@ -26,20 +33,65 @@ public class ManejoNodo implements Runnable {
                     System.out.println("Reloj actualizado: " + servidor.getReloj());
 
                     switch (mensaje.getTipo()) {
-                        case "LATIDO":
-                            InfoNodo nodo = servidor.obtenerNodo(mensaje.getIdEmisor());
-                            if (nodo != null) {
-                                boolean estabaCaido = !nodo.getActivo();
-                                nodo.setActivo(true);
-                                nodo.setUltimoLatido(System.currentTimeMillis());
-                                if (estabaCaido) {
-                                    System.out.println("El nodo " + mensaje.getIdEmisor() + " está activo");
-                                    servidor.mostrarEstadoNodos();
-                                }
-                            }
+                        case "PUBLICACION": {
+                            Publicacion pub = (Publicacion) mensaje.getContenido();
+                            GestionUsuarios.difundirPublicacion(pub);
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe PUBLICACION de " + mensaje.getIdEmisor() + " autor=" + pub.getAutor());
                             break;
+                        }
+                        case "INTERACCION": {
+                            Interaccion interaccion = (Interaccion) mensaje.getContenido();
+                            GestionUsuarios.procesarInteraccion(interaccion);
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe INTERACCION de " + mensaje.getIdEmisor());
+                            break;
+                        }
+                        case "MENSAJE": {
+                            Mensaje msj = (Mensaje) mensaje.getContenido();
+                            ClienteConectado clienteDestino = GestionUsuarios.getCliente(msj.getDestinatario());
+                            if (clienteDestino != null) {
+                                clienteDestino.enviar(msj);
+                            }
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "Recibe MENSAJE de " + mensaje.getIdEmisor() + " para=" + msj.getDestinatario());
+                            break;
+                        }
+                        case "ELECCION": {
+                            // Alguien con ID menor nos pregunta si seguimos vivos
+                            servidor.getRegistro().registrar(mensaje.getReloj(),
+                                    "Recibe ELECCION de " + mensaje.getIdEmisor());
+
+                            // Responder OK (soy mayor, me encargo yo)
+                            ConexionNodo conexionEmisor = servidor.getMembresia().getConexion(mensaje.getIdEmisor());
+                            if (conexionEmisor != null) {
+                                MensajeNodo ok = new MensajeNodo(
+                                        servidor.getId(), "OK", servidor.incrementarReloj(), null);
+                                conexionEmisor.enviar(ok);
+                            }
+                            // Iniciar mi propia elección (si no está en curso)
+                            servidor.getBully().iniciarEleccion();
+                            break;
+                        }
+                        case "OK": {
+                            // Alguien mayor que yo sigue vivo — cancelo mi elección
+                            servidor.getRegistro().registrar(mensaje.getReloj(),
+                                    "Recibe OK de " + mensaje.getIdEmisor());
+                            servidor.getBully().recibirOk();
+                            break;
+                        }
+                        case "COORDINADOR": {
+                            // Alguien se autoproclamó coordinador
+                            String nuevoCoord = (String) mensaje.getContenido();
+                            servidor.getBully().recibirCoordinador(nuevoCoord);
+                            servidor.getRegistro().registrar(mensaje.getReloj(),
+                                    "Nuevo COORDINADOR: " + nuevoCoord);
+                            break;
+                        }
+                        case "LATIDO": {
+                            servidor.getMembresia().registrarLatido(mensaje.getIdEmisor());
+                            break;
+                        }
                         default:
                             System.out.println("Tipo de mensaje desconocido: " +  mensaje.getTipo());
+                            break;
                     }
                 }
             }

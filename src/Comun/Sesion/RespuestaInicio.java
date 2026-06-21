@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import Comun.Publiaciones.Publicacion;
 
 public class RespuestaInicio implements Serializable {
-    private static final long serialVersionUID = 1L;
-
     private final boolean estado;
     private final String mensaje;
     private ArrayList<Publicacion> ultimasPublicaciones;

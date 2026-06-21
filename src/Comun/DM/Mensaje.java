@@ -7,8 +7,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 public class Mensaje implements Serializable {
-    private static final long serialVersionUID = 1L;
-
     private String remitente;
     private String destinatario;
     private boolean esGrupo;
