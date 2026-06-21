@@ -17,6 +17,7 @@ public class Servidor {
     private long reloj;
     private RegistrarEventos registro;
     private EleccionBully bully;
+    private ExclusionMutua exclusionMutua;
 
     public String getId() {
         return id;
@@ -45,6 +46,8 @@ public class Servidor {
     }
 
     public EleccionBully getBully() { return bully; }
+
+    public ExclusionMutua getExclusionMutua() { return exclusionMutua; }
 
     protected void escuchaNodos() {
         ServerSocket servidorNodos = null;
@@ -161,6 +164,7 @@ public class Servidor {
         servidor.cargarConfiguracion(id);
         servidor.getMembresia().mostrarEstado();
         servidor.bully = new EleccionBully(servidor);
+        servidor.exclusionMutua = new ExclusionMutua(servidor);
         (new Thread(servidor::escuchaNodos)).start();
         (new Thread(new EmisorLatidos(servidor))).start();
         (new Thread(new MonitorLatidos(servidor))).start();

@@ -21,6 +21,8 @@ public class MonitorLatidos implements Runnable {
                 if (info.getActivo() && hora - info.getUltimoLatido() > TimeOut) {
                     if (servidor.getMembresia().marcarCaido(idNodo)) {
                         huboCambios = true;
+                        servidor.getRegistro().registrar(
+                                servidor.incrementarReloj(), "DETECTA CAIDA del nodo " + idNodo);
                         String coord = servidor.getBully().getCoordinador();
                         System.out.println("[DEBUG] Nodo caído: " + idNodo + " | Coordinador actual: " + coord);
                         if (coord == null || idNodo.equals(coord)) {
