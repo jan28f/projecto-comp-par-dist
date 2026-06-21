@@ -127,11 +127,24 @@ public class ManejoCliente implements Runnable {
                     }
                     else if (obj instanceof Interaccion) {
                         Interaccion interaccionEntrante = (Interaccion) obj;
-                        GestionUsuarios.procesarInteraccion(interaccionEntrante);
-                        long lamport = servidor.incrementarReloj();
-                        servidor.getRegistro().registrar(lamport, "Emite INTERACCION " + interaccionEntrante.getTipo() + " autor=" + interaccionEntrante.getAutor());
-                        MensajeNodo evento = new MensajeNodo(servidor.getId(), "INTERACCION", lamport, interaccionEntrante);
-                        servidor.getMembresia().difundirEntreNodos(evento);
+                        if (interaccionEntrante.getTipo().equals("LIKE")) {
+                            servidor.getExclusionMutua().solicitarAcceso();
+                            try {
+                                GestionUsuarios.procesarInteraccion(interaccionEntrante);
+                                long lamport = servidor.incrementarReloj();
+                                servidor.getRegistro().registrar(lamport, "Emite INTERACCION LIKE (con exclusion mutua) autor=" + interaccionEntrante.getAutor());
+                                MensajeNodo evento = new MensajeNodo(servidor.getId(), "INTERACCION", lamport, interaccionEntrante);
+                                servidor.getMembresia().difundirEntreNodos(evento);
+                            } finally {
+                                servidor.getExclusionMutua().liberarAcceso();
+                            }
+                        } else {
+                            GestionUsuarios.procesarInteraccion(interaccionEntrante);
+                            long lamport = servidor.incrementarReloj();
+                            servidor.getRegistro().registrar(lamport, "Emite INTERACCION " + interaccionEntrante.getTipo() + " autor=" + interaccionEntrante.getAutor());
+                            MensajeNodo evento = new MensajeNodo(servidor.getId(), "INTERACCION", lamport, interaccionEntrante);
+                            servidor.getMembresia().difundirEntreNodos(evento);
+                        }
                     }
                 }
             }

@@ -7,6 +7,39 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GeneradorCarga {
+    private static String obtenerCoordinadorReal(String[][] nodosConfig) throws IOException {
+        String coordinadorFinal = null;
+        long lamportMax = -1;
+
+        for (String[] cfg : nodosConfig) {
+            Path logPath = Paths.get("log_" + cfg[0] + ".txt");
+            if (!Files.exists(logPath)) {
+                continue;
+            }
+            for (String linea : Files.readAllLines(logPath)) {
+                long lamportLinea = extraerLamport(linea);
+                if (linea.contains("SOY COORDINADOR") && lamportLinea > lamportMax) {
+                    lamportMax = lamportLinea;
+                    coordinadorFinal = cfg[0];
+                } else if (linea.contains("COORDINADOR establecido:") && lamportLinea > lamportMax) {
+                    lamportMax = lamportLinea;
+                    coordinadorFinal = linea.substring(linea.lastIndexOf(":") + 1).trim();
+                }
+            }
+        }
+        return coordinadorFinal;
+    }
+
+    private static long extraerLamport(String linea) {
+        try {
+            int inicio = linea.indexOf("lamport=") + 8;
+            int fin = linea.indexOf("]", inicio);
+            return Long.parseLong(linea.substring(inicio, fin));
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         int numClientes = 50;
         long duracionSegundos = 60;
@@ -86,9 +119,21 @@ public class GeneradorCarga {
         System.out.println("Esperando " + tiempoAntesFalla + " segundos para inducir falla...");
         Thread.sleep(tiempoAntesFalla * 1000);
 
-        // Inducir falla: matar al coordinador (nodo 1, que debería ser el de mayor ID en este caso)
-        System.out.println("=== INDUCIENDO FALLA: matando nodo " + nodosConfig[0][0] + " ===");
-        Process nodoCoordinador = procesosNodos.get(0);
+        String idCoordinadorReal = obtenerCoordinadorReal(nodosConfig);
+        int indiceCoordinador = 0;
+        if (idCoordinadorReal != null) {
+            for (int i = 0; i < nodosConfig.length; i++) {
+                if (nodosConfig[i][0].equals(idCoordinadorReal)) {
+                    indiceCoordinador = i;
+                    break;
+                }
+            }
+        } else {
+            System.out.println("No se pudo determinar el coordinador real desde los logs, se usara el nodo " + nodosConfig[0][0]);
+        }
+
+        System.out.println("=== INDUCIENDO FALLA: matando nodo " + nodosConfig[indiceCoordinador][0] + " (coordinador real) ===");
+        Process nodoCoordinador = procesosNodos.get(indiceCoordinador);
         nodoCoordinador.destroy();
         Thread.sleep(2000); // dar tiempo a que el sistema detecte la caída
 

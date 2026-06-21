@@ -89,6 +89,16 @@ public class ManejoNodo implements Runnable {
                             servidor.getMembresia().registrarLatido(mensaje.getIdEmisor());
                             break;
                         }
+                        case "RA_REQUEST": {
+                            String idSolicitante = (String) mensaje.getContenido();
+                            servidor.getExclusionMutua().recibirSolicitud(idSolicitante, mensaje.getReloj());
+                            break;
+                        }
+                        case "RA_REPLY": {
+                            servidor.getRegistro().registrar(mensaje.getReloj(), "RA recibe REPLY de " + mensaje.getIdEmisor());
+                            servidor.getExclusionMutua().recibirRespuesta();
+                            break;
+                        }
                         default:
                             System.out.println("Tipo de mensaje desconocido: " +  mensaje.getTipo());
                             break;
