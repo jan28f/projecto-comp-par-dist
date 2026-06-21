@@ -18,9 +18,6 @@ import Comun.Sesion.RespuestaInicio;
 import Comun.Sesion.SolicitudInicio;
 
 public class Cliente {
-    private static final String ipServidor = "127.0.0.1";
-    private static final int puerto = 12345;
-
     public static String modoActual = "feed";
     public static String nombreUsuario = "";
     public static ArrayList<Publicacion> publicacionesFeed = new ArrayList<>();
@@ -51,12 +48,12 @@ public class Cliente {
 
         if (modoActual.equals("feed")) {
             System.out.println("Comandos:\n" +
-                                "   Subir publicacion:                 pub <ruta> <texto>\n" +
-                                "   Dar me gusta a publicacion actual: like\n" +
-                                "   Comentar en publicacion actua:     com <texto>\n" +
-                                "   Ver publicacion previa/siguiente:  next/prev\n" +
-                                "   Mensajes:                          chat\n" +
-                                "   Salir:                             !salir");
+                    "   Subir publicacion:                 pub <ruta> <texto>\n" +
+                    "   Dar me gusta a publicacion actual: like\n" +
+                    "   Comentar en publicacion actua:     com <texto>\n" +
+                    "   Ver publicacion previa/siguiente:  next/prev\n" +
+                    "   Mensajes:                          chat\n" +
+                    "   Salir:                             !salir");
             if (!ultimoAviso.isEmpty()) {
                 System.out.println("\n[!] " + ultimoAviso);
                 ultimoAviso = "";
@@ -75,14 +72,14 @@ public class Cliente {
             }
         } else if (modoActual.equals("chat")) {
             System.out.println("Comandos:\n" +
-                               "    Mensaje privado:                   dm <usuario> <mensaje>\n" +
-                               "    Mensaje grupo:                     gdm <grupo> <mensaje>\n" +
-                               "    Crear grupo:                       creargrupo <nombre_grupo> <integrante1,integrante2>\n" +
-                               "    Aceptar invitacion a grupo:        aceptar <nombre_grupo>\n" +
-                               "    Rechazar invitacion a grupo:       rechazar <nombre_grupo>\n" +
-                               "    Abandonar grupo:                   salirgrupo <nombre_grupo>\n" +
-                               "    Regresar al feed de publicaciones: feed\n" +
-                               "    Finalizar sesion:                  !salir");
+                    "    Mensaje privado:                   dm <usuario> <mensaje>\n" +
+                    "    Mensaje grupo:                     gdm <grupo> <mensaje>\n" +
+                    "    Crear grupo:                       creargrupo <nombre_grupo> <integrante1,integrante2>\n" +
+                    "    Aceptar invitacion a grupo:        aceptar <nombre_grupo>\n" +
+                    "    Rechazar invitacion a grupo:       rechazar <nombre_grupo>\n" +
+                    "    Abandonar grupo:                   salirgrupo <nombre_grupo>\n" +
+                    "    Regresar al feed de publicaciones: feed\n" +
+                    "    Finalizar sesion:                  !salir");
             if (!ultimoAviso.isEmpty()) {
                 System.out.println("\n[!] " + ultimoAviso);
                 ultimoAviso = "";
@@ -103,6 +100,13 @@ public class Cliente {
 
     public static void main(String[] args) {
         Scanner escaneoInicial = new Scanner(System.in);
+        System.out.print("Ingrese la IP del servidor: ");
+        String ipServidor = escaneoInicial.nextLine().trim();
+        if (ipServidor.isEmpty()) {
+            ipServidor = "127.0.0.1";
+        }
+        System.out.print("Ingrese el puerto del servidor: ");
+        int puerto = Integer.parseInt(escaneoInicial.nextLine().trim());
         System.out.print("Ingrese su nombre de usuario: ");
         nombreUsuario = escaneoInicial.nextLine();
 
