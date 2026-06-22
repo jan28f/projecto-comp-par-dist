@@ -20,6 +20,7 @@ public class CargaCliente implements Runnable {
     private final AtomicLong exitoOpsCaida;
     private final AtomicLong errorOpsCaida;
     private final List<Long> latenciasCaida;
+    private final AtomicLong tiempoFalla;
     private final long inicioGlobal;
     private final List<NodoInfo> nodos;
 
@@ -37,7 +38,7 @@ public class CargaCliente implements Runnable {
     public CargaCliente(String usuario, long duracionSegundos, String destinoFijo,
                         AtomicLong exitoOpsNormales, AtomicLong errorOpsNormales, List<Long> latenciasNormales,
                         AtomicLong exitoOpsCaida, AtomicLong errorOpsCaida, List<Long> latenciasCaida,
-                        long inicioGlobal, List<NodoInfo> nodos) {
+                        AtomicLong tiempoFalla, long inicioGlobal, List<NodoInfo> nodos) {
         this.usuario = usuario;
         this.destinoFijo = destinoFijo;
         this.duracionMs = duracionSegundos * 1000;
@@ -47,6 +48,7 @@ public class CargaCliente implements Runnable {
         this.exitoOpsCaida = exitoOpsCaida;
         this.errorOpsCaida = errorOpsCaida;
         this.latenciasCaida = latenciasCaida;
+        this.tiempoFalla = tiempoFalla;
         this.inicioGlobal = inicioGlobal;
         this.nodos = nodos;
     }
@@ -154,16 +156,23 @@ public class CargaCliente implements Runnable {
         long inicio = System.nanoTime();
         boolean exito = false;
         try {
-            if (ThreadLocalRandom.current().nextBoolean() && !feed.isEmpty()) {
-                int indice = ThreadLocalRandom.current().nextInt(feed.size());
-                Publicacion pub = feed.get(indice);
-                Interaccion interaccion = new Interaccion("LIKE", pub.getIdPublicacion(), usuario, "");
-                out.writeObject(interaccion);
-            } else {
+            int op = ThreadLocalRandom.current().nextInt(100);
+            if (op < 40) {
                 Mensaje msj = new Mensaje(usuario, destinoFijo, false, "Carga " + System.currentTimeMillis());
                 out.writeObject(msj);
+            } else if (op < 75 && !feed.isEmpty()) {
+                long idPub;
+                synchronized (feed) {
+                    idPub = feed.get(ThreadLocalRandom.current().nextInt(feed.size())).getIdPublicacion();
+                }
+                Interaccion interaccion = new Interaccion("LIKE", idPub, usuario, "");
+                out.writeObject(interaccion);
+            } else {
+                Publicacion pub = new Publicacion(usuario, "Post " + System.currentTimeMillis(), null, null);
+                out.writeObject(pub);
             }
             out.flush();
+            out.reset();
             exito = true;
         } catch (Exception e) {
             connected = false;
@@ -171,8 +180,9 @@ public class CargaCliente implements Runnable {
         }
         long fin = System.nanoTime();
         long latencia = (fin - inicio) / 1_000_000;
-
-        if (haCaido) {
+        long tf = tiempoFalla.get();
+        boolean trasCaida = (tf > 0 && System.currentTimeMillis() >= tf);
+        if (trasCaida) {
             if (exito) {
                 exitoOpsCaida.incrementAndGet();
                 synchronized (latenciasCaida) { latenciasCaida.add(latencia); }
