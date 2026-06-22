@@ -62,6 +62,10 @@ public class GeneradorCarga {
         System.out.println(etiqueta + " - Percentil 99: " + p99 + " ms");
     }
 
+    private static double promedio(List<Long> latencias) {
+        return latencias.isEmpty() ? -1 : latencias.stream().mapToLong(Long::longValue).average().orElse(0);
+    }
+
     private static long percentil(List<Long> latencias, int p) {
         if (latencias.isEmpty()) return -1;
         List<Long> copia = new ArrayList<>(latencias);
@@ -321,6 +325,11 @@ public class GeneradorCarga {
             w.write("errores_normal," + totalErroresN); w.newLine();
             w.write("exitos_caida," + totalExitosC); w.newLine();
             w.write("errores_caida," + totalErroresC); w.newLine();
+            List<Long> latenciasGlobal = new ArrayList<>(latenciasNormales);
+            latenciasGlobal.addAll(latenciasCaida);
+            w.write("latencia_media_normal_ms," + String.format(Locale.US, "%.2f", promedio(latenciasNormales))); w.newLine();
+            w.write("latencia_media_caida_ms," + String.format(Locale.US, "%.2f", promedio(latenciasCaida))); w.newLine();
+            w.write("latencia_media_global_ms," + String.format(Locale.US, "%.2f", promedio(latenciasGlobal))); w.newLine();
             w.write("latencia_p95_normal_ms," + percentil(latenciasNormales, 95)); w.newLine();
             w.write("latencia_p95_caida_ms," + percentil(latenciasCaida, 95)); w.newLine();
             w.write("msgs_coordinacion_eleccion," + coord[0]); w.newLine();
